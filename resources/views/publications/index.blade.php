@@ -11,6 +11,9 @@
 <h2>Filtrar resultados</h2>
 <form method="get" data-live-search>
 <label class="search-box small-search"><i class="bi bi-search" aria-hidden="true"></i><input type="search" name="q" value="{{ request('q') }}" placeholder="Título, autor, DOI…" aria-label="Buscar en el catálogo"></label>
+<label>Buscar en<select name="scope">@foreach([''=>'Todo el catálogo','title'=>'Título del trabajo','author'=>'Autores','tag'=>'Etiquetas'] as $key=>$label)<option value="{{ $key }}" @selected(request('scope','')===$key)>{{ $label }}</option>@endforeach</select></label>
+<label>Revista o congreso<input type="search" name="venue" value="{{ request('venue') }}"></label>
+<label class="checkbox"><input type="checkbox" name="doi" value="1" @checked(request('doi'))> Con DOI</label>
 <label>Año<select name="year"><option value="">Todos los años</option>
 @foreach($years as $year)<option
 @selected(request('year')==$year)>{{ $year }}</option>

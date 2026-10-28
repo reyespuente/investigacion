@@ -6,6 +6,7 @@ use App\Models\Publication;
 use App\Models\Researcher;
 use App\Models\User;
 use App\Services\Audit;
+use App\Services\PublicationReview;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -19,29 +20,87 @@ class AdminController extends Controller
         abort_unless(auth()->user()?->role === 'admin', 403);
     }
 
-    public function index(Request $r)
+    private function queue(Request $r)
     {
-        $this->admin();
-        $r->validate(['status' => 'nullable|in:review,incomplete,rejected,published', 'q' => 'nullable|string|max:200']);
-        $q = Publication::query()->where('status', $r->query('status', 'review'));
+        $r->validate(['status' => 'nullable|in:review,incomplete,rejected,published', 'q' => 'nullable|string|max:200', 'researcher' => 'nullable|integer|exists:researchers,id', 'ready' => 'nullable|in:1,0,2', 'paper' => 'nullable|integer']);
+        $q = Publication::query()->where('status', $r->input('status', 'review'));
         if ($r->filled('q')) {
             $q->where('search_text', 'like', '%'.mb_strtolower($r->q).'%');
         }
+        if ($r->filled('researcher')) {
+            $q->whereHas('researchers', fn ($query) => $query->where('researchers.id', $r->researcher)->whereIn('publication_researcher.state', ['confirmed', 'pending']));
+        }
+        if ($r->filled('ready')) {
+            $condition = function ($query) {
+                $query->whereNotNull('year')->where('title', '<>', '')->whereNotNull('venue')->where('venue', '<>', '')->whereNotNull('external_url')->where('external_url', '<>', '')->where('authors', '<>', '[]');
+            };
+            if (in_array($r->ready, ['1', '2'], true)) {
+                $q->where($condition);
+            } else {
+                $q->whereNot(fn ($query) => $condition($query));
+            }
+            if ($r->ready === '2') {
+                $q->whereHas('researchers', fn ($query) => $query->where('publication_researcher.state', 'confirmed'))->whereDoesntHave('researchers', fn ($query) => $query->where('publication_researcher.state', 'pending'));
+            }
+        }
 
-return view('admin.index', ['publications' => $q->orderBy('id')->paginate(20)->withQueryString(), 'counts' => Publication::selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status'), 'users' => User::orderByDesc('id')->paginate(20, ['*'], 'users_page'), 'researchers' => Researcher::whereNull('user_id')->orderBy('name')->get()]);
+        return $q;
     }
 
-    public function review(Request $r, Publication $publication)
+    public function index(Request $r)
     {
         $this->admin();
-        $d = $r->validate(['decision' => 'required|in:published,rejected,review', 'reason' => 'required|string|max:2000']);
-        if ($d['decision'] === 'published') {
-            abort_unless($publication->title && $publication->authors && $publication->year && $publication->external_url && $publication->venue, 422, 'Completa los datos esenciales antes de publicar.');
-        }$before = $publication->toArray();
-        $publication->update(['status' => $d['decision'], 'user_modified_at' => now(), 'revision' => $publication->revision + 1]);
-        Audit::record('publication', $publication->id, 'admin_review', $before, $publication->toArray(), $d['reason']);
+        $q = $this->queue($r);
+        $publications = (clone $q)->with('researchers')->orderBy('id')->paginate(25)->withQueryString();
+        $selected = $r->filled('paper') ? (clone $q)->with('researchers')->findOrFail($r->paper) : $publications->first();
 
-        return back()->with('success', 'Decisión guardada.');
+        return view('admin.index', ['publications' => $publications, 'selected' => $selected, 'counts' => Publication::selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status'), 'researchers' => Researcher::orderBy('name')->get()]);
+    }
+
+    public function users()
+    {
+        $this->admin();
+
+        return view('admin.users', ['users' => User::orderByDesc('id')->paginate(20), 'researchers' => Researcher::whereNull('user_id')->orderBy('name')->get()]);
+    }
+
+    public function review(Request $r, Publication $publication, PublicationReview $review)
+    {
+        $this->admin();
+        $review->decide($r, $publication, true);
+        $filters = $r->only(['status', 'q', 'researcher', 'ready']);
+        if ($r->input('intent') === 'next') {
+            $q = $this->queue(new Request($filters));
+            $next = (clone $q)->where('id', '>', $publication->id)->orderBy('id')->value('id') ?? $q->orderBy('id')->value('id');
+            if ($next) {
+                $filters['paper'] = $next;
+            }
+        } else {
+            $filters['status'] = $r->decision;
+            $filters['paper'] = $publication->id;
+        }
+
+        return redirect()->route('admin', $filters)->with('success', 'Decisión guardada con sus autorías.');
+    }
+
+    public function batch(Request $r, PublicationReview $review)
+    {
+        $this->admin();
+        $data = $r->validate(['items' => 'required|array|min:1|max:25', 'items.*' => 'required|integer|min:1', 'checked' => 'accepted']);
+        DB::transaction(function () use ($data, $r, $review) {
+            $items = $data['items'];
+            ksort($items, SORT_NUMERIC);
+            foreach ($items as $id => $version) {
+                abort_unless(ctype_digit((string) $id), 422);
+                $paper = Publication::with('researchers')->lockForUpdate()->findOrFail($id);
+                abort_unless($paper->batchReviewReady(), 422, 'Una referencia tiene datos incompletos o autorías pendientes. Revísala individualmente.');
+                $single = new Request(['version' => $version, 'decision' => 'published', 'reason' => 'Revisión por lote: metadatos y autorías comprobados']);
+                $single->setUserResolver(fn () => $r->user());
+                $review->decide($single, $paper, true);
+            }
+        });
+
+        return redirect()->route('admin', $r->only(['status', 'q', 'researcher', 'ready']))->with('success', (count($data['items']) === 1 ? 'Una referencia publicada' : count($data['items']).' referencias publicadas').' con historial individual.');
     }
 
     public function createUser(Request $r)
@@ -85,10 +144,14 @@ return view('admin.index', ['publications' => $q->orderBy('id')->paginate(20)->w
     {
         $this->admin();
         $d = $r->validate(['researcher_id' => 'required|integer|exists:researchers,id', 'state' => 'required|in:confirmed,pending,rejected', 'reason' => 'required|string|max:2000']);
-        $before = $publication->researchers()->whereKey($d['researcher_id'])->first()?->pivot?->toArray();
-        $publication->researchers()->syncWithoutDetaching([$d['researcher_id'] => ['state' => $d['state'], 'evidence' => 'admin_review']]);
-        Audit::record('publication', $publication->id, 'attribution_review', $before, ['researcher_id' => $d['researcher_id'], 'state' => $d['state']], $d['reason']);
+        DB::transaction(function () use ($publication, $d) {
+            $paper = Publication::lockForUpdate()->findOrFail($publication->id);
+            $before = $paper->researchers()->whereKey($d['researcher_id'])->first()?->pivot?->toArray();
+            $paper->researchers()->syncWithoutDetaching([$d['researcher_id'] => ['state' => $d['state'], 'evidence' => 'admin_review']]);
+            $paper->increment('revision');
+            Audit::record('publication', $paper->id, 'attribution_review', $before, ['researcher_id' => $d['researcher_id'], 'state' => $d['state']], $d['reason']);
+        });
 
-        return back()->with('success','Atribución actualizada con su motivo de revisión.');
+        return back()->with('success', 'Atribución actualizada con su motivo de revisión.');
     }
 }

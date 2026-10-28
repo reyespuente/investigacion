@@ -7,15 +7,15 @@
 <p class="hero-description">Explora las ideas, las personas y los descubrimientos de nuestra comunidad.</p>
 <form action="{{ route('publications.index') }}" class="search-form" data-home-search>
 <label class="search-box"><i class="bi bi-search" aria-hidden="true"></i><input name="q" type="search" autocomplete="off" placeholder="Busca por título, autor, tema o DOI" aria-label="Buscar publicaciones"><span class="search-hint">Enter <i class="bi bi-arrow-return-left" aria-hidden="true"></i></span></label>
-<div class="filter-row">
+<div class="filter-row"><label>Buscar en<select name="scope"><option value="">Todo el catálogo</option><option value="title">Título del trabajo</option><option value="author">Autores</option><option value="tag">Etiquetas</option></select></label>
 <label>Año<select name="year"><option value="">Todos los años</option>
 @foreach($years as $year)<option>{{ $year }}</option>
 @endforeach</select></label>
 <label>Tipo<select name="type"><option value="">Todas las publicaciones</option>
 @foreach(config('catalogue.types') as $k=>$label)<option value="{{ $k }}">{{ $label }}</option>
 @endforeach</select></label>
-<label class="checkbox"><input name="abstract" type="checkbox" value="1"> Con resumen</label><a class="text-link" href="{{ route('publications.index') }}">Explorar catálogo <i class="bi bi-arrow-right" aria-hidden="true"></i></a></div></form>
-<div class="metrics"><span><strong>{{ number_format($count) }}</strong> publicaciones disponibles</span><span><strong>{{ number_format($people) }}</strong> investigadores con publicaciones</span><span><strong>{{ number_format($abstracts) }}</strong> resúmenes para explorar</span></div></section>
+<details class="advanced-search"><summary><i class="bi bi-funnel" aria-hidden="true"></i> Más filtros</summary><div class="filter-row"><label>Revista o congreso<input type="search" name="venue" placeholder="Nombre de la publicación"></label><label class="checkbox"><input name="doi" type="checkbox" value="1"> Con DOI</label><label class="checkbox"><input name="abstract" type="checkbox" value="1"> Con resumen</label></div></details><a class="text-link" href="{{ route('publications.index') }}">Explorar catálogo <i class="bi bi-arrow-right" aria-hidden="true"></i></a></div></form>
+<div class="metrics"><span><strong>{{ number_format($count) }}</strong> publicaciones disponibles</span><span><strong>{{ number_format($people) }}</strong> investigadores con publicaciones</span></div></section>
 <div id="home-live-results" aria-live="polite" hidden></div>
 <div id="home-default" class="discovery-grid">
 <section>

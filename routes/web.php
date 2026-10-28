@@ -56,7 +56,10 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
     Route::post('/cuenta/documentos', [DocumentController::class, 'store'])->middleware(['throttle:10,1', 'turnstile:upload'])->name('documents.store');
     Route::post('/cuenta/documentos/{document}/ocultar', [DocumentController::class, 'hide'])->name('documents.hide');
     Route::get('/admin', [AdminController::class, 'index'])->name('admin');
+    Route::post('/admin/revision/lote', [AdminController::class, 'batch'])->middleware('throttle:15,1')->name('admin.batch');
     Route::post('/admin/publicaciones/{publication}', [AdminController::class, 'review'])->name('admin.review');
+    Route::get('/admin/usuarios', [AdminController::class, 'users'])->name('admin.users.index');
+    Route::get('/cuenta/publicaciones/{publication}/revisar', [AccountController::class, 'review'])->name('account.review');
     Route::post('/admin/usuarios', [AdminController::class, 'createUser'])->name('admin.users');
     Route::post('/admin/usuarios/{user}/acceso', [AdminController::class, 'toggleUser'])->name('admin.user.toggle');
     Route::get('/admin/historial', [AdminController::class, 'history'])->name('admin.history');
@@ -74,6 +77,6 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
     Route::get('/admin/sistema', [SystemSettingsController::class, 'edit'])->name('admin.system');
     Route::post('/admin/sistema', [SystemSettingsController::class, 'update'])->middleware('throttle:10,1')->name('admin.system.update');
     Route::get('/admin/instalacion', [SystemSettingsController::class, 'setup'])->name('admin.setup');
-    Route::post('/admin/sistema/probar-correo',[SystemSettingsController::class, 'testMail'])->middleware('throttle:3,1')->name('admin.system.mail');
-    Route::post('/admin/sistema/probar-almacenamiento',[SystemSettingsController::class, 'testStorage'])->middleware('throttle:3,1')->name('admin.system.storage');
+    Route::post('/admin/sistema/probar-correo', [SystemSettingsController::class, 'testMail'])->middleware('throttle:3,1')->name('admin.system.mail');
+    Route::post('/admin/sistema/probar-almacenamiento', [SystemSettingsController::class, 'testStorage'])->middleware('throttle:3,1')->name('admin.system.storage');
 });

@@ -153,6 +153,18 @@ Las subidas del investigador requieren derechos propios o autorización/licencia
 
 ## Pruebas y mantenimiento
 
+### Revisión ágil del catálogo
+
+Administración separa revisión, usuarios, configuración, identidad e historial. En la bandeja puedes filtrar por docente y metadatos, cotejar el original y confirmar los perfiles seleccionados al publicar. **Publicar y siguiente** guarda ambas decisiones en una transacción y conserva el filtro de trabajo. Las coincidencias no seleccionadas permanecen pendientes.
+
+El filtro **Aptas para revisión por lote** identifica fichas con campos esenciales completos, al menos una autoría confirmada y ninguna candidata pendiente. Se pueden publicar hasta 25 referencias seleccionadas por envío, con declaración explícita de revisión e historial individual. Una ficha obsoleta o no apta cancela todo el envío. No se confirma identidad ni se aprueba el catálogo automáticamente por similitud del nombre.
+
+El titular de un perfil dispone de **Por revisar → Revisar y publicar** para sus referencias vinculadas como pendientes o confirmadas. Debe declarar su autoría; puede completar datos esenciales y seguir con la siguiente. No puede usar este flujo sobre publicaciones ajenas, rechazadas o con una atribución rechazada. Cada operación comprueba la versión para evitar sobrescribir una edición concurrente.
+
+La portada y el catálogo permiten buscar en general, título, autor o etiquetas y combinar año, tipo, revista, DOI y disponibilidad de resumen. La búsqueda de autor utiliza los nombres bibliográficos, no las afiliaciones. Las estadísticas filtran indicadores y gráficas por año, tipo y revista sin contar referencias privadas.
+
+Al actualizar desde la versión inicial, ejecuta las migraciones normales y recompila la interfaz: se añaden dos campos de búsqueda y se rellenan con los autores y etiquetas existentes. No hace falta reimportar el catálogo ni cambiar APP_KEY. La configuración del panel, cuentas y decisiones se conservan.
+
 ```bash
 php artisan test
 vendor/bin/pint --test

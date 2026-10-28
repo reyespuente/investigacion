@@ -21,19 +21,21 @@ $networkLogo=config('catalogue.network_logo_path')?route('branding.logo',['kind'
 @class(['active'=>request()->routeIs('researchers.*')]) href="{{ route('researchers.index') }}">Investigadores</a><a
 @class(['active'=>request()->routeIs('statistics')]) href="{{ route('statistics') }}">Estadísticas</a></nav>
 <div class="header-actions">
-@auth<a class="button secondary" href="{{ route('account') }}"><i class="bi bi-person" aria-hidden="true"></i> Mi espacio</a>
+@auth @if(auth()->user()->role==='admin')<a class="header-admin" href="{{ route('admin') }}"><i class="bi bi-grid" aria-hidden="true"></i> Administrar</a>@endif<a class="button secondary" href="{{ route('account') }}"><i class="bi bi-person" aria-hidden="true"></i> Mi espacio</a>
 @else<a class="button" href="{{ route('login') }}">Iniciar sesión <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a>
 @endauth
 @if($networkLogo)<img class="tecnm" src="{{ $networkLogo }}" alt="{{ config('catalogue.network_name') }}" width="140" height="66">
 @endif</div></div></header>
-<main id="contenido" class="container main">
+<main id="contenido" @class(['container','main','admin-main'=>auth()->user()?->role==='admin' && request()->routeIs('admin','admin.*')])>
 @if(session('success'))<div role="status" class="notice success">{{ session('success') }}</div>
 @endif
 @if($errors->any())<div role="alert" class="notice error"><strong>Revisa los siguientes datos:</strong><ul>
 @foreach($errors->all() as $error)<li>{{ $error }}</li>
 @endforeach</ul></div>
 @endif
-@yield('content')</main>
+@if(auth()->user()?->role==='admin' && request()->routeIs('admin','admin.*'))
+<div class="admin-shell">@include('admin.nav')<div class="admin-content">@yield('content')</div></div>
+@else @yield('content') @endif</main>
 <footer class="footer">
 <div class="container footer-inner"><span class="credit">Reyes Puente</span><a class="github" href="https://github.com/reyespuente/investigacion" target="_blank" rel="noopener noreferrer" aria-label="Código fuente en GitHub" title="Código fuente en GitHub"><i class="bi bi-github" aria-hidden="true"></i></a><span class="footer-spacer"></span><a href="{{ route('privacy') }}">Privacidad</a><a href="{{ route('cookies') }}">Cookies</a><button class="text-button" type="button" data-cookie-open>Preferencias de cookies</button></div></footer>
 <section class="cookie-banner" id="cookie-banner" aria-label="Preferencias de cookies"

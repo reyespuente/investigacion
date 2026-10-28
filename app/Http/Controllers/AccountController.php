@@ -6,6 +6,7 @@ use App\Models\Publication;
 use App\Models\Researcher;
 use App\Services\Audit;
 use App\Services\ImageUpload;
+use App\Services\PublicationReview;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -15,9 +16,18 @@ class AccountController extends Controller
     public function index(Request $r)
     {
         $researcher = $r->user()->researcher;
-        $publications = $researcher ? $researcher->publications()->orderByDesc('year')->paginate(15) : null;
+        $r->validate(['status' => 'nullable|in:pending,published,all']);
+        $counts = $researcher ? ['pending' => $researcher->publications()->wherePivotIn('state', ['pending', 'confirmed'])->where(fn ($q) => $q->whereIn('status', ['review', 'incomplete'])->orWhere(fn ($q) => $q->where('status', 'published')->where('publication_researcher.state', 'pending')))->count(), 'published' => $researcher->publications()->published()->wherePivot('state', 'confirmed')->count()] : [];
+        $query = $researcher ? $researcher->publications()->wherePivotIn('state', ['pending', 'confirmed']) : null;
+        if ($query && $r->input('status', 'pending') === 'pending') {
+            $query->where(fn ($q) => $q->whereIn('status', ['review', 'incomplete'])->orWhere(fn ($q) => $q->where('status', 'published')->where('publication_researcher.state', 'pending')));
+        }
+        if ($query && $r->status === 'published') {
+            $query->published();
+        }
+        $publications = $query?->orderByDesc('year')->paginate(15)->withQueryString();
 
-        return view('account.index', compact('researcher', 'publications'));
+        return view('account.index', compact('researcher', 'publications', 'counts'));
     }
 
     public function claim(Request $r, Researcher $researcher)
@@ -67,18 +77,25 @@ class AccountController extends Controller
         return Storage::disk($researcher->avatar_disk ?: config('filesystems.default'))->response($researcher->avatar_path, null, ['Content-Type' => 'image/webp', 'Cache-Control' => 'public, max-age=3600']);
     }
 
-    public function confirm(Request $r, Publication $publication)
+    public function review(Request $r, Publication $publication)
     {
         $profile = $r->user()->researcher;
-        abort_unless($profile && $publication->researchers()->whereKey($profile->id)->wherePivot('state', 'pending')->exists(), 403);
-        $r->validate(['authorship' => 'accepted']);
-        abort_unless($publication->title && $publication->year && $publication->authors && $publication->external_url && $publication->venue, 422, 'La referencia está incompleta. El administrador debe completarla antes de publicarla.');
-        DB::transaction(function () use ($profile, $publication) {
-            $publication->researchers()->updateExistingPivot($profile->id, ['state' => 'confirmed', 'evidence' => 'researcher_declaration']);
-            $publication->update(['status' => 'published', 'user_modified_at' => now()]);
-            Audit::record('publication', $publication->id, 'authorship_confirmed', null, ['researcher_id' => $profile->id], 'Declaración del investigador autenticado');
-        });
+        abort_unless($profile && in_array($publication->status, ['review', 'incomplete', 'published'], true) && $publication->researchers()->whereKey($profile->id)->wherePivotIn('state', ['pending', 'confirmed'])->exists(), 403);
 
-        return back()->with('success','Autoría confirmada por ti. La ficha ya es pública.');
+        return view('account.review', compact('publication'));
+    }
+
+    public function confirm(Request $r, Publication $publication, PublicationReview $review)
+    {
+        $review->decide($r, $publication, false);
+        $profile = $r->user()->researcher;
+        if ($r->input('intent') === 'next') {
+            $next = $profile->publications()->whereIn('status', ['review', 'incomplete'])->wherePivotIn('state', ['pending', 'confirmed'])->orderBy('id')->first();
+            if ($next) {
+                return redirect()->route('account.review', $next)->with('success', 'Publicación confirmada. Continúa con la siguiente.');
+            }
+        }
+
+        return redirect()->route('account', ['status' => 'pending'])->with('success','Autoría confirmada y publicación disponible.');
     }
 }

@@ -12,7 +12,7 @@ class CatalogueController extends Controller
 {
     public function home()
     {
-        return view('home', ['latest' => Publication::published()->where('year', '<=', now()->year)->orderByDesc('year')->orderByDesc('published_date')->orderByDesc('id')->take(4)->get(), 'ranking' => $this->ranking()->take(5)->get(), 'count' => Publication::published()->count(), 'people' => Researcher::whereHas('publications', fn ($q) => $q->published()->where('publication_researcher.state', 'confirmed'))->count(), 'abstracts' => Publication::published()->whereNotNull('abstract')->count(), 'years' => $this->years()]);
+        return view('home', ['latest' => Publication::published()->where('year', '<=', now()->year)->orderByDesc('year')->orderByDesc('published_date')->orderByDesc('id')->take(4)->get(), 'ranking' => $this->ranking()->take(5)->get(), 'count' => Publication::published()->count(), 'people' => Researcher::whereHas('publications', fn ($q) => $q->published()->where('publication_researcher.state', 'confirmed'))->count(), 'years' => $this->years()]);
     }
 
     private function years()
@@ -32,7 +32,7 @@ class CatalogueController extends Controller
             return response()->json(['html' => view('partials.results', compact('publications'))->render(), 'total' => $publications->total()]);
         }
 
-return view('publications.index', compact('publications') + ['years' => $this->years()]);
+        return view('publications.index', compact('publications') + ['years' => $this->years()]);
     }
 
     public function show(Publication $publication)
@@ -62,8 +62,22 @@ return view('publications.index', compact('publications') + ['years' => $this->y
         return view('researchers.show', compact('researcher', 'publications', 'documents'));
     }
 
-    public function statistics()
+    public function statistics(Request $r, PublicationSearch $search)
     {
-        return view('statistics', ['ranking' => $this->ranking()->take(20)->get(), 'types' => Publication::published()->selectRaw('type, COUNT(*) as total')->groupBy('type')->orderByDesc('total')->get(), 'years' => Publication::published()->selectRaw('year, COUNT(*) as total')->whereNotNull('year')->groupBy('year')->orderByDesc('year')->get()]);
+        $query = $search->query($r)->reorder();
+        $total = (clone $query)->count();
+        $withDoi = (clone $query)->whereNotNull('doi')->where('doi', '<>', '')->count();
+        $withAbstract = (clone $query)->whereNotNull('abstract')->where('abstract', '<>', '')->count();
+        $ranking = Researcher::withCount(['publications as publications_count' => fn ($q) => $q->whereIn('publications.id', (clone $query)->select('publications.id'))->where('publication_researcher.state', 'confirmed')])->whereHas('publications', fn ($q) => $q->whereIn('publications.id', (clone $query)->select('publications.id'))->where('publication_researcher.state', 'confirmed'))->orderByDesc('publications_count')->orderBy('name')->take(10)->get();
+        $data = [
+            'total' => $total, 'withDoi' => $withDoi, 'withAbstract' => $withAbstract, 'ranking' => $ranking,
+            'people' => Researcher::whereHas('publications', fn ($q) => $q->whereIn('publications.id', (clone $query)->select('publications.id'))->where('publication_researcher.state', 'confirmed'))->count(),
+            'types' => (clone $query)->selectRaw('type,COUNT(*) as total')->groupBy('type')->orderByDesc('total')->get(),
+            'years' => (clone $query)->selectRaw('year,COUNT(*) as total')->whereNotNull('year')->groupBy('year')->orderBy('year')->get(),
+            'venues' => (clone $query)->selectRaw('venue,COUNT(*) as total')->whereNotNull('venue')->groupBy('venue')->orderByDesc('total')->take(8)->get(),
+            'allYears' => $this->years(),
+        ];
+
+        return $r->expectsJson() ? response()->json(['html' => view('partials.statistics', $data)->render()]) : view('statistics',$data);
     }
 }

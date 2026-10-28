@@ -8,6 +8,14 @@ class Publication extends Model
 {
     protected $guarded = ['id'];
 
+    protected static function booted(): void
+    {
+        static::saving(function (Publication $publication) {
+            $publication->author_search = mb_strtolower(implode(' ', array_column($publication->authors ?? [], 'nombre')));
+            $publication->tag_search = mb_strtolower(implode(' ', $publication->metadata['bibliografia']['palabras_clave'] ?? []));
+        });
+    }
+
     protected function casts(): array
     {
         return ['authors' => 'array', 'metadata' => 'array', 'user_modified_at' => 'datetime'];
@@ -31,6 +39,16 @@ class Publication extends Model
     public function label(): string
     {
         return config('catalogue.types')[$this->type] ?? $this->type;
+    }
+
+    public function reviewGaps(): array
+    {
+        return array_keys(array_filter(['título' => ! $this->title, 'año' => ! $this->year, 'autores' => ! $this->authors, 'revista' => ! $this->venue, 'enlace' => ! $this->external_url]));
+    }
+
+    public function batchReviewReady(): bool
+    {
+        return in_array($this->status, ['review', 'incomplete'], true) && ! $this->reviewGaps() && $this->researchers->contains(fn ($person) => $person->pivot->state === 'confirmed') && ! $this->researchers->contains(fn ($person) => $person->pivot->state === 'pending');
     }
 
     public function csl(): array

@@ -39,7 +39,11 @@ async function search(form, isHome = false) {
     );
     if (isHome) {
         form.querySelector(".text-link").href = "/publicaciones?" + params;
-        if (!params.size) {
+        if (
+            ![...params].some(
+                ([k, v]) => v && (k !== "scope" || params.get("q")),
+            )
+        ) {
             target.hidden = true;
             document.querySelector("#home-default").hidden = false;
             return;
@@ -119,6 +123,9 @@ document.querySelectorAll("[data-export-open]").forEach((b) =>
                         "abstract",
                         "researcher",
                         "sort",
+                        "scope",
+                        "venue",
+                        "doi",
                     ].includes(k)
                 )
                     continue;
@@ -314,3 +321,178 @@ if (viewer)
         document.querySelector("#pdf-status").textContent =
             "No se pudo mostrar el PDF. Puedes abrir el archivo original.";
     });
+
+const settingsForm = document.querySelector("[data-settings-form]");
+const batchForm = document.querySelector("#batch-review");
+if (batchForm) {
+    function selectionCount() {
+        const count = document.querySelectorAll(
+            "[data-batch-item]:checked",
+        ).length;
+        document.querySelector("[data-selection-count]").textContent = count;
+        document.querySelector("[data-batch-submit]").disabled = count === 0;
+        batchForm.classList.toggle("has-selection", count > 0);
+    }
+    document
+        .querySelectorAll("[data-batch-item]")
+        .forEach((input) => input.addEventListener("change", selectionCount));
+    selectionCount();
+}
+if (settingsForm) {
+    const panels = [...settingsForm.querySelectorAll("[data-settings-panel]")];
+    const tabs = [...document.querySelectorAll("[data-settings-tab]")];
+    function selectSettings(key) {
+        if (!panels.some((panel) => panel.dataset.settingsPanel === key))
+            key = "access";
+        panels.forEach(
+            (panel) => (panel.hidden = panel.dataset.settingsPanel !== key),
+        );
+        tabs.forEach((tab) => {
+            tab.classList.toggle("active", tab.dataset.settingsTab === key);
+            if (tab.dataset.settingsTab === key)
+                tab.setAttribute("aria-current", "true");
+            else tab.removeAttribute("aria-current");
+        });
+    }
+    tabs.forEach((tab) =>
+        tab.addEventListener("click", (event) => {
+            event.preventDefault();
+            selectSettings(tab.dataset.settingsTab);
+            history.replaceState(
+                null,
+                "",
+                "#settings-" + tab.dataset.settingsTab,
+            );
+        }),
+    );
+    settingsForm.addEventListener(
+        "invalid",
+        (event) => {
+            const panel = event.target.closest("[data-settings-panel]");
+            if (panel) selectSettings(panel.dataset.settingsPanel);
+        },
+        true,
+    );
+    selectSettings(location.hash.replace("#settings-", ""));
+}
+document.querySelectorAll("[data-review-decision]").forEach((select) => {
+    const form = select.form;
+    function updateDecision() {
+        const publish = select.value === "published";
+        document
+            .querySelectorAll("[data-review-primary]")
+            .forEach(
+                (button) =>
+                    (button.firstChild.textContent = publish
+                        ? "Publicar y siguiente "
+                        : "Guardar y siguiente "),
+            );
+        form.querySelector('[name="reason"]').required = !publish;
+        form.querySelectorAll(
+            '[name="title"],[name="year"],[name="venue"],[name="external_url"]',
+        ).forEach((input) => (input.required = publish));
+    }
+    select.addEventListener("change", updateDecision);
+    updateDecision();
+});
+document.querySelectorAll(".review-form").forEach((form) =>
+    form.addEventListener("submit", () => {
+        form.setAttribute("aria-busy", "true");
+        // Keep the submitter enabled until its name/value is sent by the browser.
+        requestAnimationFrame(() =>
+            form
+                .querySelectorAll('button[type="submit"]')
+                .forEach((button) => (button.disabled = true)),
+        );
+    }),
+);
+document.querySelectorAll(".review-form").forEach((form) =>
+    form.addEventListener(
+        "invalid",
+        (event) => {
+            const details = event.target.closest("details");
+            if (details) details.open = true;
+        },
+        true,
+    ),
+);
+const statisticsForm = document.querySelector("[data-statistics-form]");
+if (statisticsForm) {
+    let request;
+    async function refreshStatistics() {
+        request?.abort();
+        const abort = new AbortController();
+        request = abort;
+        const params = new URLSearchParams(new FormData(statisticsForm));
+        for (const [key, value] of [...params]) if (!value) params.delete(key);
+        const panel = document.querySelector("#statistics-results");
+        panel.setAttribute("aria-busy", "true");
+        try {
+            const response = await fetch("/estadisticas?" + params, {
+                headers: { Accept: "application/json" },
+                signal: abort.signal,
+            });
+            if (!response.ok) throw Error();
+            const data = await response.json();
+            panel.innerHTML = data.html;
+            history.replaceState(null, "", "/estadisticas?" + params);
+            document.querySelector("[data-statistics-error]").hidden = true;
+        } catch (error) {
+            if (error.name !== "AbortError")
+                document.querySelector("[data-statistics-error]").hidden =
+                    false;
+        } finally {
+            if (!abort.signal.aborted) panel.removeAttribute("aria-busy");
+        }
+    }
+    let statisticsTimer;
+    statisticsForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        refreshStatistics();
+    });
+    statisticsForm.addEventListener("change", refreshStatistics);
+    statisticsForm.addEventListener("input", (event) => {
+        if (event.target.type === "search") {
+            clearTimeout(statisticsTimer);
+            statisticsTimer = setTimeout(refreshStatistics, 300);
+        }
+    });
+    document
+        .querySelector("#statistics-results")
+        .addEventListener("click", (event) => {
+            const control = event.target.closest("[data-stat-filter]");
+            if (!control) return;
+            const input = statisticsForm.elements.namedItem(
+                control.dataset.statFilter,
+            );
+            input.value =
+                input.value === control.dataset.statValue
+                    ? ""
+                    : control.dataset.statValue;
+            refreshStatistics();
+        });
+}
+
+const adminMenu = document.querySelector(".admin-menu");
+if (adminMenu) {
+    const size = matchMedia("(max-width:700px)");
+    const syncMenu = () => (adminMenu.open = !size.matches);
+    syncMenu();
+    size.addEventListener("change", syncMenu);
+}
+
+const selectPage = document.querySelector("[data-batch-all]");
+if (selectPage) {
+    const inputs = [...document.querySelectorAll("[data-batch-item]")];
+    selectPage.disabled = inputs.length === 0;
+    selectPage.addEventListener("click", () => {
+        const checked = !inputs.every((input) => input.checked);
+        inputs.forEach((input) => {
+            input.checked = checked;
+            input.dispatchEvent(new Event("change"));
+        });
+        selectPage.textContent = checked
+            ? "Quitar selección"
+            : "Seleccionar aptas de esta página";
+    });
+}

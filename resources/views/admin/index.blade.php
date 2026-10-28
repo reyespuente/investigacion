@@ -1,47 +1,31 @@
-
 @extends('layouts.app')
-@section('title','Administración')
-@section('content')<div class="page-heading">
-<p class="eyebrow">ADMINISTRACIÓN</p>
-<h1>Cuida el catálogo.</h1></div>
-<nav class="account-nav"><a href="{{ route('admin.setup') }}">Asistente de instalación</a><a href="{{ route('admin.system') }}">Servicios y acceso</a><a href="{{ route('admin.settings') }}">Identidad y logotipos</a><a href="{{ route('admin.history') }}">Historial de cambios</a><a href="#usuarios">Cuentas de usuario</a><a href="{{ route('editor.create') }}">Agregar publicación</a></nav>
-<div class="metrics">
-@foreach(['review'=>'En revisión','incomplete'=>'Incompletas','published'=>'Publicadas','rejected'=>'Rechazadas'] as $key=>$label)<a href="{{ route('admin',['status'=>$key]) }}"><strong>{{ number_format($counts[$key]??0) }}</strong> {{ $label }}</a>
-@endforeach</div>
-<form method="get" class="form-grid admin-filter">
-<label>Estado<select name="status">
-@foreach(['review'=>'En revisión','incomplete'=>'Incompletas','published'=>'Publicadas','rejected'=>'Rechazadas'] as $key=>$label)<option value="{{ $key }}"
-@selected(request('status','review')===$key)>{{ $label }}</option>
-@endforeach</select></label>
-<label>Buscar<input name="q" value="{{ request('q') }}"></label><button class="button secondary">Aplicar</button></form>
-@forelse($publications as $publication)<article class="review-item">
-<div class="publication-meta">#{{ $publication->id }} · {{ $publication->year }} · {{ $publication->type }}</div>
-<h3>{{ $publication->title }}</h3>
-<p>{{ $publication->venue }}</p><a href="{{ route('publications.show',$publication) }}">Revisar ficha</a> · <a href="{{ route('editor.edit',$publication) }}">Corregir metadatos</a><details><summary>Registrar decisión</summary>
-<form method="post" action="{{ route('admin.review',$publication) }}">
-@csrf
-@include('partials.field',['name'=>'decision','label'=>'Decisión','type'=>'select','options'=>['published'=>'Publicar','review'=>'Mantener en revisión','rejected'=>'Rechazar']])
-@include('partials.field',['name'=>'reason','label'=>'Motivo','type'=>'textarea','required'=>true])<button class="button secondary">Guardar decisión</button></form></details></article>
-@empty<p>No hay referencias con estos filtros.</p>
-@endforelse {{ $publications->links() }}<section class="article-section" id="usuarios">
-<h2>Usuarios</h2>
-<div class="table-scroll">
-<table>
-<thead>
-<tr><th>Nombre</th><th>Correo privado</th><th>Rol</th><th>Acceso</th></tr></thead>
-<tbody>
-@foreach($users as $user)<tr><td>{{ $user->name }}</td><td>{{ $user->email }}</td><td>{{ $user->role==='admin'?'Administrador':'Investigador' }}</td><td>
-<form method="post" action="{{ route('admin.user.toggle',$user) }}">
-@csrf<button class="text-button">{{ $user->active?'Desactivar':'Activar' }}</button></form></td></tr>
-@endforeach</tbody></table></div>{{ $users->links() }}<h2>Crear cuenta</h2>
-<p class="muted">Puedes crear cuentas de cualquier dominio. La contraseña temporal deberá cambiarse al entrar.</p>
-<form method="post" action="{{ route('admin.users') }}" class="form-panel">
-@csrf
-@include('partials.field',['name'=>'name','label'=>'Nombre','required'=>true])
-@include('partials.field',['name'=>'email','label'=>'Correo electrónico','type'=>'email','required'=>true])
-@include('partials.field',['name'=>'role','label'=>'Rol','type'=>'select','options'=>['member'=>'Investigador','admin'=>'Administrador']])<label>Perfil a asignar (opcional)<select name="researcher_id"><option value="">Sin perfil asignado</option>
-@foreach($researchers as $person)<option value="{{ $person->id }}">{{ $person->name }}</option>
-@endforeach</select></label>
-@include('partials.field',['name'=>'password','label'=>'Contraseña temporal','type'=>'password','required'=>true,'autocomplete'=>'new-password'])
-@include('partials.field',['name'=>'password_confirmation','label'=>'Confirmar contraseña','type'=>'password','required'=>true,'autocomplete'=>'new-password'])<button class="button">Crear usuario</button></form></section>
+@section('title','Revisar publicaciones')
+@section('content')
+<div class="workspace-heading"><div><p class="eyebrow">TU BANDEJA DE TRABAJO</p><h1>Revisar publicaciones</h1><p class="muted">Comprueba la referencia y confirma sus autorías en un solo paso.</p></div><a class="button secondary" href="{{ route('admin.system') }}"><i class="bi bi-gear" aria-hidden="true"></i>Configuración</a></div>
+<nav class="status-tabs" aria-label="Estados de publicación">
+@foreach(['review'=>'En revisión','incomplete'=>'Incompletas','published'=>'Publicadas','rejected'=>'Rechazadas'] as $key=>$label)
+<a href="{{ route('admin',['status'=>$key]) }}" @class(['active'=>request('status','review')===$key])>{{ $label }} <strong>{{ number_format($counts[$key]??0) }}</strong></a>
+@endforeach</nav>
+<form method="get" class="queue-filters"><input type="hidden" name="status" value="{{ request('status','review') }}">
+<label>Buscar referencia<input type="search" name="q" value="{{ request('q') }}" placeholder="Título, autor o tema"></label>
+<label>Docente<select name="researcher"><option value="">Todos</option>@foreach($researchers as $person)<option value="{{ $person->id }}" @selected(request('researcher')==$person->id)>{{ $person->name }}</option>@endforeach</select></label>
+<label>Metadatos<select name="ready"><option value="">Todos</option><option value="1" @selected(request('ready')==='1')>Datos esenciales completos</option><option value="2" @selected(request('ready')==='2')>Aptas para revisión por lote</option><option value="0" @selected(request('ready')==='0')>Faltan datos</option></select></label>
+<button class="button secondary">Filtrar</button><a href="{{ route('admin') }}" class="text-link">Limpiar</a></form>
+@if(in_array(request('status','review'),['review','incomplete']))
+<form id="batch-review" method="post" action="{{ route('admin.batch') }}" class="batch-bar">@csrf
+@foreach(request()->only(['status','q','researcher','ready']) as $key=>$value)<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endforeach
+<div><strong><span data-selection-count>0</span> seleccionadas</strong><label class="checkbox"><input type="checkbox" name="checked" value="1" required> He comprobado estas referencias y sus autorías.</label><p class="small muted">Solo se pueden seleccionar fichas completas con perfiles confirmados y sin candidatos pendientes.</p></div><div class="button-row"><button class="button secondary small-button" type="button" data-batch-all>Seleccionar aptas de esta página</button><button class="button secondary" data-batch-submit type="submit">Publicar seleccionadas</button></div>
+</form>@endif
+<div class="review-workspace"><section class="queue-list" aria-label="Cola de publicaciones"><div class="queue-caption"><strong>{{ number_format($publications->total()) }}</strong> resultados · 25 por página</div>
+@forelse($publications as $publication)
+<div class="queue-entry">@if($publication->batchReviewReady())<input type="checkbox" form="batch-review" name="items[{{ $publication->id }}]" value="{{ $publication->revision }}" data-batch-item aria-label="Seleccionar referencia {{ $publication->id }} para publicar">@endif
+<a href="{{ route('admin',array_merge(request()->only(['status','q','researcher','ready','page']),['paper'=>$publication->id])) }}" @class(['queue-row','selected'=>$selected?->id===$publication->id]) @if($selected?->id===$publication->id) aria-current="true" @endif>
+<span class="publication-meta">#{{ $publication->id }} · {{ $publication->year??'Sin año' }} · {{ $publication->label() }}</span><strong>{{ $publication->title }}</strong><span class="small muted">{{ Str::limit($publication->venue,85) }}</span>
+<span class="queue-flags"><span class="badge">{{ $publication->reviewGaps()?'Faltan datos':'Datos completos' }}</span><span>{{ $publication->researchers->where('pivot.state','confirmed')->count() }} confirmadas · {{ $publication->researchers->where('pivot.state','pending')->count() }} pendientes</span></span></a></div>
+@empty<div class="empty"><h2>Bandeja despejada</h2><p>No hay publicaciones con estos filtros.</p></div>@endforelse
+{{ $publications->links() }}</section>
+<section class="review-detail" aria-label="Revisión individual">
+@if($selected) @include('partials.review',['publication'=>$selected,'administrator'=>true])
+@else<div class="empty"><h2>Todo listo por aquí</h2><p>Selecciona otro estado o cambia los filtros.</p></div>@endif
+</section></div>
 @endsection
