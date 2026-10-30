@@ -1,8 +1,8 @@
 # Repositorio académico
 
-Sistema abierto en **Laravel 13**, Blade, JavaScript y MariaDB para consultar publicaciones, descubrir investigadores y mantener sus perfiles académicos. Cada institución configura su identidad y aporta sus propios datos. **Este repositorio no contiene padrones, correos institucionales, publicaciones, documentos ni claves de ninguna instalación.**
+Sistema abierto en **Laravel 13**, Blade, JavaScript y MariaDB para consultar publicaciones, descubrir investigadores y mantener sus perfiles académicos.
 
-Desarrollado por Reyes Guadalupe Puente Balcázar · [contacto@reyespuente.com](mailto:contacto@reyespuente.com). Código bajo licencia MIT; los documentos y metadatos importados conservan sus propias condiciones y derechos.
+Desarrollado por el Instituto Tecnológico de Celaya. Código bajo licencia MIT; los documentos y metadatos importados conservan sus propias condiciones y derechos.
 
 ## Qué permite
 
