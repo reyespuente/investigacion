@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Researcher;
 use App\Services\GoogleIdentity;
+use App\Services\ResearcherClaim;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -15,7 +17,10 @@ class AuthController extends Controller
 {
     public function login(Request $r)
     {
-        return view('auth.login');
+        $profileId = filter_var($r->query('perfil'), FILTER_VALIDATE_INT);
+        $target = $profileId ? Researcher::find($profileId) : null;
+
+        return view('auth.login', compact('target'));
     }
 
     public function authenticate(Request $r)
@@ -30,22 +35,32 @@ class AuthController extends Controller
         return redirect()->intended(route('account'));
     }
 
-    public function google()
+    public function google(Request $r)
     {
         abort_unless(config('services.google.client_id') && config('services.google.client_secret'), 503, 'El acceso institucional todavía no está disponible.');
+        $profileId = filter_var($r->query('perfil'), FILTER_VALIDATE_INT);
+        $r->session()->put('researcher_claim', $profileId ?: null);
 
         return Socialite::driver('google')->scopes(['openid', 'email', 'profile'])->with(['hd' => (count(config('catalogue.domains')) === 1 ? config('catalogue.domains')[0] : '*'), 'prompt' => 'select_account'])->redirect();
     }
 
-    public function callback(Request $r, GoogleIdentity $resolver)
+    public function callback(Request $r, GoogleIdentity $resolver, ResearcherClaim $claim)
     {
         try {
             $identity = Socialite::driver('google')->user();
         } catch (\Throwable) {
-            return redirect()->route('login')->withErrors(['google' => 'No se completó el acceso de Google. Intenta nuevamente.']);
+            return redirect()->route('login', ['perfil' => $r->session()->pull('researcher_claim')])
+                ->withErrors(['google' => 'No se completó el acceso de Google. Intenta nuevamente.']);
         }$u = $resolver->resolve($identity);
         Auth::login($u);
         $r->session()->regenerate();
+
+        if ($profileId = $r->session()->pull('researcher_claim')) {
+            $r->session()->forget('url.intended');
+            $claim->link($u, Researcher::findOrFail($profileId));
+
+            return redirect()->route('editor.create')->with('success', 'Perfil vinculado. Ya puedes agregar artículos.');
+        }
 
         return redirect()->intended(route('account'));
     }

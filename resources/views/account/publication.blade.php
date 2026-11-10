@@ -1,9 +1,9 @@
 
 @extends('layouts.app')
-@section('title','Editar publicación')
-@section('content')<a class="back-link" href="{{ route('account') }}">Mi espacio</a>
+@section('title',$publication->exists?'Editar publicación':'Agregar artículo')
+@section('content')<a class="back-link" href="{{ route('account') }}">Mis publicaciones</a>
 <div class="page-heading">
-<h1>{{ $publication->exists?'Editar publicación':'Comparte tu trabajo.' }}</h1>
+<h1>{{ $publication->exists?'Editar publicación':'Agregar artículo' }}</h1>
 <p class="muted">Guarda una referencia completa y enlaza al trabajo original.</p></div>
 <form class="form-panel wide-form" method="post" action="{{ $publication->exists?route('editor.update',$publication):route('editor.store') }}">
 @csrf<input type="hidden" name="version" value="{{ $publication->revision??0 }}">

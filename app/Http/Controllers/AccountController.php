@@ -7,41 +7,41 @@ use App\Models\Researcher;
 use App\Services\Audit;
 use App\Services\ImageUpload;
 use App\Services\PublicationReview;
+use App\Services\ResearcherClaim;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class AccountController extends Controller
 {
-    public function index(Request $r)
+    public function index(Request $r, ResearcherClaim $claim)
     {
         $researcher = $r->user()->researcher;
         $r->validate(['status' => 'nullable|in:pending,published,all']);
+        $suggestedProfile = null;
+        if (! $researcher && ($hash = $claim->rosterHash($r->user()))) {
+            $suggestedProfile = Researcher::whereNull('user_id')->where('claim_email_hash', $hash)->first();
+        }
         $counts = $researcher ? ['pending' => $researcher->publications()->wherePivotIn('state', ['pending', 'confirmed'])->where(fn ($q) => $q->whereIn('status', ['review', 'incomplete'])->orWhere(fn ($q) => $q->where('status', 'published')->where('publication_researcher.state', 'pending')))->count(), 'published' => $researcher->publications()->published()->wherePivot('state', 'confirmed')->count()] : [];
         $query = $researcher ? $researcher->publications()->wherePivotIn('state', ['pending', 'confirmed']) : null;
-        if ($query && $r->input('status', 'pending') === 'pending') {
+        $status = $r->input('status') ?: (! empty($counts['pending']) ? 'pending' : 'published');
+        if ($query && $status === 'pending') {
             $query->where(fn ($q) => $q->whereIn('status', ['review', 'incomplete'])->orWhere(fn ($q) => $q->where('status', 'published')->where('publication_researcher.state', 'pending')));
         }
-        if ($query && $r->status === 'published') {
-            $query->published();
+        if ($query && $status === 'published') {
+            $query->published()->wherePivot('state', 'confirmed');
         }
         $publications = $query?->orderByDesc('year')->paginate(15)->withQueryString();
 
-        return view('account.index', compact('researcher', 'publications', 'counts'));
+        return view('account.index', compact('researcher', 'publications', 'counts', 'status', 'suggestedProfile'));
     }
 
-    public function claim(Request $r, Researcher $researcher)
+    public function claim(Request $r, Researcher $researcher, ResearcherClaim $claim)
     {
-        DB::transaction(function () use ($r, $researcher) {
-            $u = $r->user();
-            $profile = Researcher::lockForUpdate()->findOrFail($researcher->id);
-            abort_unless($u->google_id && $u->email_verified_at && in_array(explode('@', $u->email)[1], config('catalogue.domains'), true) && $profile->claim_email_hash && hash_equals($profile->claim_email_hash, Researcher::emailHash($u->email)), 403, 'Tu cuenta no coincide con el correo institucional de este perfil. Contacta al administrador si necesitas corregir el padrón.');
-            abort_if($profile->user_id || $u->researcher()->exists(), 409, 'El perfil ya está reclamado o tu cuenta ya tiene uno asociado.');
-            $profile->update(['user_id' => $u->id]);
-            Audit::record('researcher', $profile->id, 'claimed', null, ['user_id' => $u->id]);
-        });
+        $claim->link($r->user(), $researcher);
 
-        return redirect()->route('account')->with('success', 'Perfil reclamado. Ya puedes actualizar tus datos y publicaciones.');
+        return redirect()->route('editor.create')->with('success', 'Perfil vinculado. Ya puedes agregar artículos.');
     }
 
     public function edit(Request $r)
@@ -56,18 +56,76 @@ class AccountController extends Controller
     {
         $profile = $r->user()->researcher;
         abort_unless($profile, 403);
-        $d = $r->validate(['name' => 'required|string|max:500', 'bio' => 'nullable|string|max:4000', 'department' => 'nullable|string|max:250', 'contact_email' => 'nullable|email|max:254', 'website' => 'nullable|url:http,https|max:2048', 'phone' => 'nullable|string|max:50', 'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:3072|dimensions:max_width=4096,max_height=4096']);
-        $before = $profile->toArray();
+        $d = $r->validate(['name' => 'required|string|max:500', 'bio' => 'nullable|string|max:4000', 'department' => 'nullable|string|max:250', 'website' => 'nullable|url:http,https|max:2048', 'phone' => 'nullable|string|max:50', 'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:3072|dimensions:max_width=4096,max_height=4096']);
+        $emails = $this->validatePublicEmails($r);
         $fields = collect($d)->only(['name', 'bio', 'department'])->all();
-        $fields['contacts'] = collect($d)->only(['contact_email', 'website', 'phone'])->filter()->all();
         if ($r->hasFile('avatar')) {
             $fields['avatar_path'] = app(ImageUpload::class)->store($r->file('avatar'), 'avatars');
             $fields['avatar_disk'] = config('filesystems.default');
         }
-        $profile->update($fields);
-        Audit::record('researcher', $profile->id, 'updated', $before, $profile->toArray());
+        DB::transaction(function () use ($r, $profile, $fields, $emails, $d) {
+            $profile = Researcher::lockForUpdate()->findOrFail($profile->id);
+            abort_unless($profile->user_id === $r->user()->id, 403);
+            $before = $profile->toArray();
+            $fields['contacts'] = array_filter(array_replace($profile->contacts ?? [], $emails, [
+                'website' => $d['website'] ?? null,
+                'phone' => $d['phone'] ?? null,
+            ]));
+            $profile->update($fields);
+            Audit::record('researcher', $profile->id, 'updated', $before, $profile->toArray());
+        });
 
         return back()->with('success', 'Perfil actualizado. Los datos de contacto que escribiste serán públicos.');
+    }
+
+    public function editPublicEmails(Request $r, Researcher $researcher)
+    {
+        abort_unless($r->user()->role === 'admin', 403);
+
+        return view('admin.researcher-emails', compact('researcher'));
+    }
+
+    public function updatePublicEmails(Request $r, Researcher $researcher)
+    {
+        abort_unless($r->user()->role === 'admin', 403);
+        $emails = $this->validatePublicEmails($r);
+
+        DB::transaction(function () use ($researcher, $emails) {
+            $profile = Researcher::lockForUpdate()->findOrFail($researcher->id);
+            $before = $profile->contacts ?? [];
+            $profile->update(['contacts' => array_filter(array_replace($before, $emails))]);
+            Audit::record('researcher', $profile->id, 'public_emails_updated', $before, $profile->contacts);
+        });
+
+        return redirect()->route('researchers.show', $researcher)->with('success', 'Correos públicos actualizados.');
+    }
+
+    private function validatePublicEmails(Request $request): array
+    {
+        $data = $request->validate([
+            'contact_email' => 'nullable|email|max:254',
+            'email_aliases' => 'nullable|string|max:6000',
+        ]);
+        $emails = [];
+        if (array_key_exists('contact_email', $data)) {
+            $emails['contact_email'] = $data['contact_email'];
+        }
+        if (array_key_exists('email_aliases', $data)) {
+            $aliases = collect(preg_split('/[\r\n,]+/', $data['email_aliases'] ?? ''))
+                ->map(fn (string $email) => trim($email))
+                ->filter()
+                ->unique(fn (string $email) => mb_strtolower($email))
+                ->values()
+                ->all();
+            Validator::make(
+                ['email_aliases' => $aliases],
+                ['email_aliases' => 'array|max:20', 'email_aliases.*' => 'email|max:254'],
+                ['email_aliases.max' => 'Puedes guardar hasta 20 alias de correo.', 'email_aliases.*.email' => 'Cada alias debe ser un correo válido.']
+            )->validate();
+            $emails['email_aliases'] = $aliases;
+        }
+
+        return $emails;
     }
 
     public function avatar(Researcher $researcher)
@@ -96,6 +154,6 @@ class AccountController extends Controller
             }
         }
 
-        return redirect()->route('account', ['status' => 'pending'])->with('success','Autoría confirmada y publicación disponible.');
+        return redirect()->route('account', ['status' => 'pending'])->with('success', 'Autoría confirmada y publicación disponible.');
     }
 }

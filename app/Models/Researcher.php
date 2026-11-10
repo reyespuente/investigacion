@@ -35,6 +35,16 @@ class Researcher extends Model
         return collect(preg_split('/\s+/u', $this->name))->take(2)->map(fn ($n) => mb_substr($n, 0, 1))->implode('');
     }
 
+    /** @return list<string> */
+    public function publicEmails(): array
+    {
+        return collect([$this->contacts['contact_email'] ?? null, ...($this->contacts['email_aliases'] ?? [])])
+            ->filter()
+            ->unique(fn (string $email) => mb_strtolower($email))
+            ->values()
+            ->all();
+    }
+
     public static function emailHash(string $email): string
     {
         return hash_hmac('sha256', mb_strtolower(trim($email)), config('app.key'));

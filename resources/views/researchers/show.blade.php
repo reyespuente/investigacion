@@ -13,23 +13,33 @@
 @if($researcher->orcid)<a class="orcid" href="{{ $researcher->orcid }}" rel="noopener noreferrer" target="_blank">ORCID <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a>
 @endif</div>
 <div class="profile-claim">
-@if(!$researcher->user_id)
+@if(auth()->id() && auth()->id()===$researcher->user_id)
+<a class="button" href="{{ route('editor.create') }}">Agregar artículos</a>
+<a href="{{ route('account') }}">Mis publicaciones</a>
+@elseif(!$researcher->user_id && $researcher->claim_email_hash)
 @auth<form method="post" action="{{ route('researchers.claim',$researcher) }}">
-@csrf<button class="button secondary">Reclamar perfil</button></form>
-@else<a class="button secondary" href="{{ route('login') }}">Reclamar perfil</a>
-@endauth<p class="small muted">Solo puede reclamarlo su titular con el correo institucional del padrón.</p>
-@elseif(auth()->id()===$researcher->user_id)<a class="button secondary" href="{{ route('profile.edit') }}">Editar mi perfil</a>
-@else<span class="badge">Perfil reclamado</span>
-@endif</div></header>
+@csrf<button class="button">Agregar artículos</button></form>
+@else<a class="button" href="{{ route('login',['perfil'=>$researcher->id]) }}">Agregar artículos</a>
+@endauth<p class="small muted">Vincula este perfil con el correo institucional registrado.</p>
+@endif
+@if(auth()->user()?->role==='admin')
+<a href="{{ route('admin.researchers.emails',$researcher) }}">Administrar correos</a>
+@endif
+</div></header>
 @if($researcher->bio)<p class="long-text profile-bio">{{ $researcher->bio }}</p>
 @endif
-@if($researcher->contacts)<div class="tags">
-@foreach($researcher->contacts as $key=>$value)
-@if($key==='contact_email')<a href="mailto:{{ $value }}">{{ $value }}</a>
-@elseif($key==='website')<a href="{{ $value }}" rel="noopener noreferrer" target="_blank">Sitio web <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a>
-@else<span>{{ $value }}</span>
+@if($researcher->contacts)
+<div class="tags" aria-label="Datos de contacto públicos">
+@foreach($researcher->publicEmails() as $email)
+<a href="mailto:{{ $email }}">{{ $email }}</a>
+@endforeach
+@if($website = $researcher->contacts['website'] ?? null)
+<a href="{{ $website }}" rel="noopener noreferrer" target="_blank">Sitio web <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a>
 @endif
-@endforeach</div>
+@if($phone = $researcher->contacts['phone'] ?? null)
+<span>{{ $phone }}</span>
+@endif
+</div>
 @endif <div class="section-heading">
 <h2>Publicaciones <span class="muted">{{ $publications->total() }}</span></h2><a href="{{ route('publications.index',['researcher'=>$researcher->id]) }}">Explorar y exportar <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a></div>
 @include('partials.results')

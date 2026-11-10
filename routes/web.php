@@ -59,6 +59,8 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
     Route::post('/admin/revision/lote', [AdminController::class, 'batch'])->middleware('throttle:15,1')->name('admin.batch');
     Route::post('/admin/publicaciones/{publication}', [AdminController::class, 'review'])->name('admin.review');
     Route::get('/admin/usuarios', [AdminController::class, 'users'])->name('admin.users.index');
+    Route::get('/admin/investigadores/{researcher}/correos', [AccountController::class, 'editPublicEmails'])->name('admin.researchers.emails');
+    Route::post('/admin/investigadores/{researcher}/correos', [AccountController::class, 'updatePublicEmails'])->middleware('throttle:20,1')->name('admin.researchers.emails.update');
     Route::get('/cuenta/publicaciones/{publication}/revisar', [AccountController::class, 'review'])->name('account.review');
     Route::post('/admin/usuarios', [AdminController::class, 'createUser'])->name('admin.users');
     Route::post('/admin/usuarios/{user}/acceso', [AdminController::class, 'toggleUser'])->name('admin.user.toggle');

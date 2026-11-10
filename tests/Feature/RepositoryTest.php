@@ -12,6 +12,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\User as GoogleUser;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -115,19 +117,66 @@ class RepositoryTest extends TestCase
     {
         $u = User::factory()->create(['email' => 'ana@staff.example.edu', 'google_id' => 'g1']);
         $p = Researcher::create(['name' => 'Ana', 'original_name' => 'Ana', 'claim_email_hash' => Researcher::emailHash($u->email)]);
-        $this->actingAs($u)->post('/investigadores/'.$p->id.'/reclamar')->assertRedirect('/cuenta');
+        $this->actingAs($u)->get(route('account'))->assertSee('Vincular y agregar artículos');
+        $this->post(route('researchers.claim', $p))->assertRedirect(route('editor.create'));
         $this->assertSame($u->id, $p->fresh()->user_id);
         $other = User::factory()->create(['email' => 'other@staff.example.edu', 'google_id' => 'g2']);
-        $this->actingAs($other)->post('/investigadores/'.$p->id.'/reclamar')->assertForbidden();
+        $this->actingAs($other)->post(route('researchers.claim', $p))->assertSessionHasErrors('profile');
         $this->assertDatabaseCount('audit_events', 1);
     }
 
     public function test_domain_account_alone_cannot_claim_another_profile(): void
     {
         $u = User::factory()->create(['email' => 'ana@staff.example.edu', 'google_id' => 'g1']);
-        $p = Researcher::create(['name' => 'Otra persona', 'original_name' => 'Otra persona', 'claim_email_hash' => Researcher::emailHash('someone@staff.example.edu')]);
-        $this->actingAs($u)->post('/investigadores/'.$p->id.'/reclamar')->assertForbidden();
+        $p = Researcher::create(['name' => 'Otra persona', 'original_name' => 'Otra persona', 'claim_email_hash' => Researcher::emailHash('someone@staff.example.edu'), 'contacts' => ['email_aliases' => [$u->email]]]);
+        $this->actingAs($u)->post(route('researchers.claim', $p))->assertSessionHasErrors('profile');
         $this->assertNull($p->fresh()->user_id);
+    }
+
+    public function test_guest_add_articles_keeps_the_selected_profile_through_google(): void
+    {
+        $email = 'ana@staff.example.edu';
+        $profile = Researcher::create(['name' => 'Ana Pérez', 'original_name' => 'Ana Pérez', 'claim_email_hash' => Researcher::emailHash($email)]);
+        $other = Researcher::create(['name' => 'Ana P.', 'original_name' => 'Ana P.', 'claim_email_hash' => Researcher::emailHash('other@staff.example.edu')]);
+        config(['services.google.client_id' => 'test-id', 'services.google.client_secret' => 'test-secret', 'services.google.redirect' => route('auth.google.callback')]);
+
+        $this->get(route('researchers.show', $profile))->assertSee(route('login', ['perfil' => $profile->id]));
+        $this->get(route('login', ['perfil' => $profile->id]))->assertSee(route('auth.google', ['perfil' => $profile->id]));
+        $this->get(route('auth.google', ['perfil' => $profile->id]))->assertRedirect()->assertSessionHas('researcher_claim', $profile->id);
+
+        $identity = (new GoogleUser)->setRaw(['email_verified' => true])->map(['id' => 'ana-google', 'email' => $email, 'name' => 'Ana Pérez']);
+        Socialite::shouldReceive('driver->user')->once()->andReturn($identity);
+
+        $this->get(route('auth.google.callback'))->assertRedirect(route('editor.create'))->assertSessionMissing('researcher_claim');
+        $this->assertSame(User::where('email', $email)->firstOrFail()->id, $profile->fresh()->user_id);
+        $this->assertNull($other->fresh()->user_id);
+        $this->get(route('editor.create'))->assertOk();
+    }
+
+    public function test_admin_and_owner_can_manage_public_emails_without_changing_the_roster(): void
+    {
+        [$owner, $profile] = $this->owner();
+        $hash = Researcher::emailHash($owner->email);
+        $profile->update(['claim_email_hash' => $hash, 'contacts' => ['website' => 'https://example.org']]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $updateUrl = route('admin.researchers.emails.update', $profile);
+
+        $this->actingAs($owner)->post($updateUrl, ['email_aliases' => 'unauthorized@example.org'])->assertForbidden();
+        $this->actingAs($admin)->post($updateUrl, [
+            'contact_email' => 'main@example.org',
+            'email_aliases' => "first@example.org\nsecond@example.org, FIRST@example.org",
+        ])->assertRedirect(route('researchers.show', $profile));
+        $this->assertSame(['main@example.org', 'first@example.org', 'second@example.org'], $profile->fresh()->publicEmails());
+        $this->assertSame('https://example.org', $profile->fresh()->contacts['website']);
+
+        $this->actingAs($owner)->post(route('profile.update'), ['name' => $profile->name, 'email_aliases' => 'invalid'])->assertSessionHasErrors('email_aliases.0');
+        $this->post(route('profile.update'), ['name' => $profile->name, 'email_aliases' => 'third@example.org'])->assertSessionHas('success');
+        $this->assertSame($hash, $profile->fresh()->claim_email_hash);
+        $this->get(route('researchers.show', $profile))
+            ->assertSee('mailto:main@example.org')
+            ->assertSee('mailto:third@example.org')
+            ->assertDontSee('first@example.org')
+            ->assertDontSee($owner->email);
     }
 
     public function test_member_cannot_edit_others_or_open_admin(): void
@@ -281,6 +330,6 @@ class RepositoryTest extends TestCase
     public function test_csl_keeps_literal_names_when_a_structured_name_is_empty(): void
     {
         $p = $this->paper(['authors' => [['nombre' => 'Instituto de investigación', 'nombre_estructurado' => []]]]);
-        $this->assertSame(['literal' => 'Instituto de investigación'],$p->csl()['author'][0]);
+        $this->assertSame(['literal' => 'Instituto de investigación'], $p->csl()['author'][0]);
     }
 }

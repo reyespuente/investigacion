@@ -12,7 +12,7 @@
 @include('partials.field',['name'=>'bio','label'=>'Acerca de ti','type'=>'textarea','value'=>$researcher->bio])
 @include('partials.field',['name'=>'avatar','label'=>'Foto de perfil (JPG, PNG o WebP, hasta 3 MB)','type'=>'file'])<h2>Contacto público</h2>
 <p class="small muted">Estos campos son opcionales. Tu correo de acceso permanece privado y no cambia con estos datos.</p>
-@include('partials.field',['name'=>'contact_email','label'=>'Correo público','type'=>'email','value'=>$researcher->contacts['contact_email']??''])
+@include('account.public-emails')
 @include('partials.field',['name'=>'website','label'=>'Sitio web','type'=>'url','value'=>$researcher->contacts['website']??''])
 @include('partials.field',['name'=>'phone','label'=>'Teléfono público','value'=>$researcher->contacts['phone']??''])<button class="button">Guardar perfil</button></form>
 @endsection
