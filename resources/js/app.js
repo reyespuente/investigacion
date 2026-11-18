@@ -1,4 +1,5 @@
 import "./authors.js";
+import "./profile.js";
 
 const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
 const banner = document.querySelector("#cookie-banner");

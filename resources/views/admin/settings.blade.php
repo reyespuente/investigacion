@@ -14,6 +14,7 @@
 @include('partials.field',['name'=>'primary_color','label'=>'Color primario','type'=>'color','value'=>config('catalogue.primary_color'),'required'=>true])
 @include('partials.field',['name'=>'accent_color','label'=>'Color secundario','type'=>'color','value'=>config('catalogue.accent_color'),'required'=>true])</div>
 <p class="small muted">Elige colores oscuros con contraste suficiente sobre blanco. Los enlaces y botones usarán estos colores.</p>
+@include('partials.field',['name'=>'journals_url','label'=>'Enlace al portal de revistas','type'=>'url','value'=>config('catalogue.journals_url'),'help'=>'Se mostrará en el menú como Revistas y el nombre corto de tu institución.'])
 @include('partials.field',['name'=>'institution_logo','label'=>'Logotipo institucional','type'=>'file','help'=>'JPG, PNG o WebP, hasta 3 MB. Se conserva la proporción y se retiran los metadatos de la imagen.'])
 @include('partials.field',['name'=>'network_logo','label'=>'Logotipo de la red o institución superior','type'=>'file'])<button class="button">Guardar identidad</button>
 <p class="small muted">Los dominios y servicios se administran en Servicios y acceso.</p></form>

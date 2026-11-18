@@ -7,6 +7,8 @@ use App\Http\Controllers\CatalogueController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\PublicationEditorController;
+use App\Http\Controllers\ResearchLineController;
+use App\Http\Controllers\ResearchProjectController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SystemSettingsController;
 use Illuminate\Http\Request;
@@ -19,6 +21,10 @@ Route::get('/investigadores', [CatalogueController::class, 'researchers'])->name
 Route::get('/investigadores/{researcher}', [CatalogueController::class, 'researcher'])->name('researchers.show');
 Route::get('/investigadores/{researcher}/foto', [AccountController::class, 'avatar'])->name('researchers.avatar');
 Route::get('/estadisticas', [CatalogueController::class, 'statistics'])->name('statistics');
+Route::get('/proyectos', [ResearchProjectController::class, 'index'])->name('projects.index');
+Route::get('/proyectos/{project}', [ResearchProjectController::class, 'show'])->name('projects.show');
+Route::get('/lineas-de-investigacion', [ResearchLineController::class, 'index'])->name('lines.index');
+Route::get('/lineas-de-investigacion/{line}', [ResearchLineController::class, 'show'])->name('lines.show');
 Route::view('/privacidad', 'legal.privacy')->name('privacy');
 Route::view('/cookies', 'legal.cookies')->name('cookies');
 Route::post('/cookies', function (Request $r) {
@@ -62,6 +68,16 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
     Route::post('/admin/revision/lote', [AdminController::class, 'batch'])->middleware('throttle:15,1')->name('admin.batch');
     Route::post('/admin/publicaciones/{publication}', [AdminController::class, 'review'])->name('admin.review');
     Route::get('/admin/usuarios', [AdminController::class, 'users'])->name('admin.users.index');
+    Route::get('/admin/proyectos', [ResearchProjectController::class, 'index'])->name('admin.projects');
+    Route::get('/admin/proyectos/nuevo', [ResearchProjectController::class, 'create'])->name('admin.projects.create');
+    Route::post('/admin/proyectos', [ResearchProjectController::class, 'save'])->name('admin.projects.store');
+    Route::get('/admin/proyectos/{project}/editar', [ResearchProjectController::class, 'edit'])->name('admin.projects.edit');
+    Route::post('/admin/proyectos/{project}', [ResearchProjectController::class, 'save'])->name('admin.projects.update');
+    Route::get('/admin/lineas', [ResearchLineController::class, 'index'])->name('admin.lines');
+    Route::get('/admin/lineas/nueva', [ResearchLineController::class, 'create'])->name('admin.lines.create');
+    Route::post('/admin/lineas', [ResearchLineController::class, 'save'])->name('admin.lines.store');
+    Route::get('/admin/lineas/{line}/editar', [ResearchLineController::class, 'edit'])->name('admin.lines.edit');
+    Route::post('/admin/lineas/{line}', [ResearchLineController::class, 'save'])->name('admin.lines.update');
     Route::get('/admin/investigadores/{researcher}/correos', [AccountController::class, 'editPublicEmails'])->name('admin.researchers.emails');
     Route::post('/admin/investigadores/{researcher}/correos', [AccountController::class, 'updatePublicEmails'])->middleware('throttle:20,1')->name('admin.researchers.emails.update');
     Route::get('/cuenta/publicaciones/{publication}/revisar', [AccountController::class, 'review'])->name('account.review');

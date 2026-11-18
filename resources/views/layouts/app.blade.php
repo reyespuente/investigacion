@@ -16,16 +16,20 @@ $networkLogo=config('catalogue.network_logo_path')?route('branding.logo',['kind'
 <div class="container header-inner"><a class="brand" href="{{ route('home') }}">
 @if($institutionLogo)<img src="{{ $institutionLogo }}" width="42" height="48" alt="{{ config('catalogue.short_name') }}">
 @endif<span>{{ config('catalogue.portal_name') }}</span></a>
-<nav aria-label="Navegación principal"><a
-@class(['active'=>request()->routeIs('publications.*')]) href="{{ route('publications.index') }}">Publicaciones</a><a
-@class(['active'=>request()->routeIs('researchers.*')]) href="{{ route('researchers.index') }}">Investigadores</a><a
-@class(['active'=>request()->routeIs('statistics')]) href="{{ route('statistics') }}">Estadísticas</a></nav>
 <div class="header-actions">
 @auth @if(auth()->user()->role==='admin')<a class="header-admin" href="{{ route('admin') }}"><i class="bi bi-grid" aria-hidden="true"></i> Administrar</a>@endif<a class="button secondary" href="{{ route('account') }}"><i class="bi bi-person" aria-hidden="true"></i> Mi espacio</a>
 @else<a class="button" href="{{ route('login') }}">Iniciar sesión <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a>
 @endauth
 @if($networkLogo)<img class="tecnm" src="{{ $networkLogo }}" alt="{{ config('catalogue.network_name') }}" width="140" height="66">
-@endif</div></div></header>
+@endif</div></div>
+<nav class="container primary-navigation" aria-label="Navegación principal">
+    <a @class(['active'=>request()->routeIs('publications.*')]) href="{{ route('publications.index') }}">Publicaciones</a>
+    <a @class(['active'=>request()->routeIs('researchers.*')]) href="{{ route('researchers.index') }}">Investigadores</a>
+    <a @class(['active'=>request()->routeIs('projects.*')]) href="{{ route('projects.index') }}">Proyectos</a>
+    <a @class(['active'=>request()->routeIs('lines.*')]) href="{{ route('lines.index') }}">Líneas de investigación</a>
+    <a @class(['active'=>request()->routeIs('statistics')]) href="{{ route('statistics') }}">Estadísticas</a>
+    @if(config('catalogue.journals_url'))<a href="{{ config('catalogue.journals_url') }}" target="_blank" rel="noopener noreferrer">Revistas {{ config('catalogue.short_name') }} <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a>@endif
+</nav></header>
 <main id="contenido" @class(['container','main','admin-main'=>auth()->user()?->role==='admin' && request()->routeIs('admin','admin.*')])>
 @if(session('success'))<div role="status" class="notice success">{{ session('success') }}</div>
 @endif

@@ -13,7 +13,7 @@ class Researcher extends Model
 
     protected function casts(): array
     {
-        return ['contacts' => 'array'];
+        return ['contacts' => 'array', 'degrees' => 'array', 'recognitions' => 'array'];
     }
 
     public function user()
@@ -43,6 +43,16 @@ class Researcher extends Model
         return $this->hasMany(Document::class);
     }
 
+    public function researchLines(): BelongsToMany
+    {
+        return $this->belongsToMany(ResearchLine::class);
+    }
+
+    public function projects(): BelongsToMany
+    {
+        return $this->belongsToMany(ResearchProject::class, 'project_participants')->withPivot('name', 'position');
+    }
+
     public function initials(): string
     {
         return collect(preg_split('/\s+/u', $this->name))->take(2)->map(fn ($n) => mb_substr($n, 0, 1))->implode('');
@@ -51,7 +61,12 @@ class Researcher extends Model
     /** @return list<string> */
     public function publicEmails(): array
     {
-        return collect([$this->contacts['contact_email'] ?? null, ...($this->contacts['email_aliases'] ?? [])])
+        $institutionalEmail = $this->user?->email;
+        if (! $institutionalEmail || ! in_array(explode('@', $institutionalEmail)[1] ?? '', config('catalogue.domains'), true)) {
+            $institutionalEmail = null;
+        }
+
+        return collect([$this->contacts['contact_email'] ?? $institutionalEmail, ...($this->contacts['email_aliases'] ?? [])])
             ->filter()
             ->unique(fn (string $email) => mb_strtolower($email))
             ->values()

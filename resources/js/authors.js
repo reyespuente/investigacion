@@ -5,6 +5,9 @@ document.querySelectorAll("[data-author-editor]").forEach((editor) => {
     const status = editor.querySelector("[data-author-status]");
     const external = editor.querySelector("[data-external-authors]");
     const rows = () => [...list.querySelectorAll("[data-author-row]")];
+    const field = editor.dataset.field || "authors";
+    const limit = Number(editor.dataset.limit || 1000);
+    const peopleLabel = editor.dataset.peopleLabel || "autores";
     const nameKey = (name) => name
         .trim()
         .normalize("NFD")
@@ -15,9 +18,10 @@ document.querySelectorAll("[data-author-editor]").forEach((editor) => {
 
     function renumber() {
         rows().forEach((row, index, all) => {
-            row.querySelector("[data-author-name]").name = `authors[${index}][name]`;
-            row.querySelector("[data-author-profile]").name = `authors[${index}][researcher_id]`;
-            row.querySelector("[data-author-affiliations]").name = `authors[${index}][affiliations]`;
+            row.querySelector("[data-author-name]").name = `${field}[${index}][name]`;
+            row.querySelector("[data-author-profile]").name = `${field}[${index}][researcher_id]`;
+            const affiliations = row.querySelector("[data-author-affiliations]");
+            if (affiliations) affiliations.name = `${field}[${index}][affiliations]`;
             row.querySelector("[data-author-up]").disabled = index === 0;
             row.querySelector("[data-author-down]").disabled = index === all.length - 1;
         });
@@ -29,11 +33,11 @@ document.querySelectorAll("[data-author-editor]").forEach((editor) => {
             ? row.querySelector("[data-author-profile]").value === String(author.id)
             : nameKey(row.querySelector("[data-author-name]").value) === nameKey(name));
         if (duplicate) {
-            status.textContent = "Este autor ya está en la lista.";
+            status.textContent = "Esta persona ya está en la lista.";
             return false;
         }
-        if (!name || name.length > 500 || rows().length >= 1000) {
-            status.textContent = "Revisa los nombres. Puedes agregar hasta 1000 autores y 500 caracteres por nombre.";
+        if (!name || name.length > 500 || rows().length >= limit) {
+            status.textContent = `Puedes agregar hasta ${limit} ${peopleLabel} y 500 caracteres por nombre.`;
             return false;
         }
         const fragment = editor.querySelector("[data-author-template]").content.cloneNode(true);
@@ -131,7 +135,7 @@ document.querySelectorAll("[data-author-editor]").forEach((editor) => {
                 suggestions.hidden = authors.length === 0;
                 status.textContent = authors.length
                     ? "Selecciona el perfil correcto. Puedes recorrer las opciones con Tab."
-                    : "Sin coincidencias. Puedes agregar el nombre como autor externo.";
+                    : `Sin coincidencias. Puedes agregar el nombre en ${peopleLabel} externos.`;
             } catch (error) {
                 if (error.name !== "AbortError") {
                     status.textContent = "No se pudieron cargar las recomendaciones. Intenta nuevamente.";

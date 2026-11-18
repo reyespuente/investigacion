@@ -58,7 +58,11 @@ class CatalogueController extends Controller
     public function researchers(Request $r)
     {
         $r->validate(['q' => 'nullable|string|max:150']);
+        $r->validate(['department' => 'nullable|string|max:250']);
         $q = Researcher::withCount(['publications as publications_count' => fn ($q) => $q->published()->where('publication_researcher.state', 'confirmed')]);
+        if ($r->filled('department')) {
+            $q->where('department', $r->department);
+        }
         if ($r->filled('q')) {
             $q->where('name', 'like', '%'.$r->q.'%');
         }$researchers = $q->orderBy('name')->paginate(24)->withQueryString();
@@ -68,10 +72,11 @@ class CatalogueController extends Controller
 
     public function researcher(Researcher $researcher)
     {
+        $researcher->load(['researchLines', 'user']);
         $publications = $researcher->publications()->published()->wherePivot('state', 'confirmed')->orderByDesc('year')->paginate(10);
         $documents = $researcher->documents()->whereNull('publication_id')->where('is_public', true)->get();
 
-        return view('researchers.show', compact('researcher', 'publications', 'documents'));
+        return view('researchers.show', compact('researcher', 'publications', 'documents') + ['projects' => $researcher->projects()->with('researchLines')->orderBy('name')->get()]);
     }
 
     public function statistics(Request $r, PublicationSearch $search)

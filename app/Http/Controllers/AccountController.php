@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Publication;
 use App\Models\Researcher;
+use App\Models\ResearchLine;
 use App\Services\Audit;
 use App\Services\ImageUpload;
 use App\Services\PublicationReview;
@@ -14,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class AccountController extends Controller
 {
@@ -51,7 +53,7 @@ class AccountController extends Controller
         $researcher = $r->user()->researcher;
         abort_unless($researcher, 403);
 
-        return view('account.profile', compact('researcher'));
+        return view('account.profile', ['researcher' => $researcher->load('researchLines'), 'lines' => ResearchLine::orderBy('name')->get()]);
     }
 
     public function update(Request $r)
@@ -59,13 +61,41 @@ class AccountController extends Controller
         $profile = $r->user()->researcher;
         abort_unless($profile, 403);
         $d = $r->validate(['name' => 'required|string|max:500', 'bio' => 'nullable|string|max:4000', 'department' => 'nullable|string|max:250', 'website' => 'nullable|url:http,https|max:2048', 'phone' => 'nullable|string|max:50', 'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:3072|dimensions:max_width=4096,max_height=4096']);
+        $academic = $r->validate([
+            'career' => 'sometimes|nullable|string|max:250',
+            'professional_title' => 'sometimes|nullable|string|max:250',
+            'degrees_present' => 'nullable|in:1',
+            'degrees' => 'nullable|array|max:20',
+            'degrees.*.level' => ['required', Rule::in(config('academic.degrees'))],
+            'degrees.*.program' => 'nullable|string|max:250',
+            'degrees.*.institution' => 'nullable|string|max:250',
+            'degrees.*.year' => 'nullable|integer|min:1800|max:'.(now()->year + 1),
+            'recognitions_present' => 'nullable|in:1',
+            'prodep' => 'nullable|boolean',
+            'prodep_start' => 'required_if:prodep,1|nullable|date_format:Y-m-d',
+            'prodep_until' => 'required_if:prodep,1|nullable|date_format:Y-m-d|after_or_equal:prodep_start',
+            'snii_level' => ['nullable', Rule::in(config('academic.snii_levels'))],
+            'research_lines_present' => 'nullable|in:1',
+            'research_lines' => 'nullable|array|max:50',
+            'research_lines.*' => 'integer|distinct|exists:research_lines,id',
+        ]);
         $emails = $this->validatePublicEmails($r);
         $fields = collect($d)->only(['name', 'bio', 'department'])->all();
+        $fields = array_replace($fields, collect($academic)->only(['career', 'professional_title'])->all());
+        if ($r->has('degrees_present')) {
+            $fields['degrees'] = array_values($academic['degrees'] ?? []);
+        }
+        if ($r->has('recognitions_present')) {
+            $fields['recognitions'] = array_filter([
+                'prodep' => $r->boolean('prodep') ? ['start' => $academic['prodep_start'], 'until' => $academic['prodep_until']] : null,
+                'snii' => $academic['snii_level'] ?? null,
+            ]);
+        }
         if ($r->hasFile('avatar')) {
             $fields['avatar_path'] = app(ImageUpload::class)->store($r->file('avatar'), 'avatars');
             $fields['avatar_disk'] = config('filesystems.default');
         }
-        DB::transaction(function () use ($r, $profile, $fields, $emails, $d) {
+        DB::transaction(function () use ($r, $profile, $fields, $emails, $d, $academic) {
             $profile = Researcher::lockForUpdate()->findOrFail($profile->id);
             abort_unless($profile->user_id === $r->user()->id, 403);
             $before = $profile->toArray();
@@ -74,6 +104,9 @@ class AccountController extends Controller
                 'phone' => $d['phone'] ?? null,
             ]));
             $profile->update($fields);
+            if ($r->has('research_lines_present')) {
+                $profile->researchLines()->sync($academic['research_lines'] ?? []);
+            }
             Audit::record('researcher', $profile->id, 'updated', $before, $profile->toArray());
         });
 

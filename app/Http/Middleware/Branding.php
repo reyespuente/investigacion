@@ -10,8 +10,8 @@ class Branding
 {
     public function handle($r, Closure $next)
     {
-        $settings = Cache::remember('institution_branding', 300, fn () => DB::table('site_settings')->whereIn('key', ['institution', 'short_name', 'portal_name', 'network_name', 'primary_color', 'accent_color', 'institution_logo_path', 'network_logo_path', 'institution_logo_disk', 'network_logo_disk', 'logo_version'])->pluck('value', 'key')->all());
-        foreach (['institution', 'short_name', 'portal_name', 'network_name', 'primary_color', 'accent_color', 'institution_logo_path', 'network_logo_path', 'institution_logo_disk', 'network_logo_disk', 'logo_version'] as $key) {
+        $settings = Cache::remember('institution_branding', 300, fn () => DB::table('site_settings')->whereIn('key', ['institution', 'short_name', 'portal_name', 'network_name', 'primary_color', 'accent_color', 'institution_logo_path', 'network_logo_path', 'institution_logo_disk', 'network_logo_disk', 'logo_version', 'journals_url'])->pluck('value', 'key')->all());
+        foreach (['institution', 'short_name', 'portal_name', 'network_name', 'primary_color', 'accent_color', 'institution_logo_path', 'network_logo_path', 'institution_logo_disk', 'network_logo_disk', 'logo_version', 'journals_url'] as $key) {
             if (array_key_exists($key, $settings)) {
                 config(['catalogue.'.$key => $settings[$key]]);
             }
@@ -21,6 +21,6 @@ class Branding
             }
         }
 
-return $next($r);
+        return $next($r);
     }
 }

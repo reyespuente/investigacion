@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'journals_url' => env('JOURNALS_URL', 'https://investigacion.celaya.tecnm.mx/'),
     'domains' => array_values(array_filter(array_map(fn ($v) => strtolower(trim($v)), explode(',', env('ALLOWED_EMAIL_DOMAINS', 'example.edu'))))),
     'institution' => env('INSTITUTION_NAME', 'Tu institución'), 'short_name' => env('INSTITUTION_SHORT_NAME', 'Institución'), 'portal_name' => env('PORTAL_NAME', 'Repositorio académico'),
     'network_name' => env('INSTITUTION_NETWORK', ''), 'institution_logo' => env('INSTITUTION_LOGO', ''), 'network_logo' => env('NETWORK_LOGO', ''),

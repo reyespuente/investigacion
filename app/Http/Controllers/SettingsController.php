@@ -23,6 +23,7 @@ class SettingsController extends Controller
     {
         abort_unless($r->user()->role === 'admin', 403);
         $rules = ['institution' => 'required|string|max:250', 'short_name' => 'required|string|max:80', 'portal_name' => 'required|string|max:150', 'network_name' => 'nullable|string|max:250', 'primary_color' => ['required', 'regex:/^#[a-f0-9]{6}$/i'], 'accent_color' => ['required', 'regex:/^#[a-f0-9]{6}$/i']];
+        $rules['journals_url'] = 'nullable|url:https|max:2048';
         foreach (['institution_logo', 'network_logo'] as $k) {
             $rules[$k] = 'nullable|image|mimes:jpg,jpeg,png,webp|max:3072|dimensions:max_width=4096,max_height=4096';
         }$data = $r->validate($rules);
@@ -57,6 +58,6 @@ class SettingsController extends Controller
         $path = config('catalogue.'.$kind.'_logo_path');
         abort_unless($path, 404);
 
-        return Storage::disk(config('catalogue.'.$kind.'_logo_disk') ?: config('filesystems.default'))->response($path,null,['Content-Type' => 'image/webp', 'Cache-Control' => 'public, max-age=3600']);
+        return Storage::disk(config('catalogue.'.$kind.'_logo_disk') ?: config('filesystems.default'))->response($path, null, ['Content-Type' => 'image/webp', 'Cache-Control' => 'public, max-age=3600']);
     }
 }

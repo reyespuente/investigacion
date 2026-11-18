@@ -8,7 +8,7 @@
 <form method="post" action="{{ route('logout') }}">
 @csrf<button class="button secondary">Cerrar sesión</button></form></div>
 <nav class="account-nav" aria-label="Mi cuenta">
-@if($researcher)<a class="button" href="{{ route('editor.create') }}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Agregar artículos</a><a href="{{ route('profile.edit') }}">Editar perfil y correos</a><a href="{{ route('researchers.show',$researcher) }}">Ver perfil público</a>
+@if($researcher)<a class="button" href="{{ route('editor.create') }}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Agregar artículos</a><a href="{{ route('profile.edit') }}">Editar perfil académico</a><a href="{{ route('profile.edit') }}#research-lines">Mis líneas de investigación</a><a href="{{ route('researchers.show',$researcher) }}">Ver perfil público</a>
 @endif<a href="{{ route('password.change') }}">Cambiar contraseña</a>
 @if(auth()->user()->role==='admin')<a href="{{ route('admin') }}">Administración</a>
 @endif</nav>

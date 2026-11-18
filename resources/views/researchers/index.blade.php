@@ -5,7 +5,9 @@
 <p class="eyebrow">PERSONAS DETRÁS DEL CONOCIMIENTO</p>
 <h1>Nuestra comunidad.</h1>
 <p class="muted">Conoce las trayectorias y publicaciones del catálogo.</p>
+@if(request('department'))<p class="small">Departamento {{ request('department') }} · <a href="{{ route('researchers.index') }}">Ver todos</a></p>@endif
 <form action="{{ route('researchers.index') }}" class="directory-search">
+@if(request('department'))<input type="hidden" name="department" value="{{ request('department') }}">@endif
 <label class="search-box"><i class="bi bi-search" aria-hidden="true"></i><input name="q" type="search" value="{{ request('q') }}" placeholder="Nombre o apellido" aria-label="Buscar investigadores"></label></form></div>
 <div class="researcher-grid">
 @forelse($researchers as $person)<a class="researcher-card" href="{{ route('researchers.show',$person) }}"><span class="avatar large">
