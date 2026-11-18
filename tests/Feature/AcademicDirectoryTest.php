@@ -141,7 +141,10 @@ class AcademicDirectoryTest extends TestCase
         $this->post(route('admin.lines.store'), ['name' => 'Robótica'])->assertSessionHasErrors('name');
         $this->post(route('admin.lines.update', $line), ['name' => 'Robótica aplicada'])->assertRedirect();
         $this->get(route('admin.lines'))->assertOk()->assertSee('Robótica aplicada');
-        $this->get(route('projects.index'))->assertOk()->assertSee('Revistas')->assertSee('https://investigacion.celaya.tecnm.mx/');
+        config(['catalogue.journals_url' => null]);
+        $this->get(route('projects.index'))->assertOk()->assertDontSee('Revistas');
+        config(['catalogue.journals_url' => 'https://journals.example.edu/']);
+        $this->get(route('projects.index'))->assertOk()->assertSee('Revistas')->assertSee('https://journals.example.edu/');
         $this->assertSame(1, DB::table('research_lines')->count());
     }
 }
