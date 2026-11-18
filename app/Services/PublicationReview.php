@@ -39,6 +39,8 @@ class PublicationReview
                 abort_unless($profile && in_array($paper->status, ['review', 'incomplete', 'published'], true) && $profile->inboxPublications()->whereKey($paper->id)->exists(), 403);
             }
             $paper->fill(collect($data)->only(['title', 'year', 'venue', 'external_url', 'abstract'])->all());
+            $authorEditor = app(PublicationAuthors::class);
+            $paper->authors = $authorEditor->read($request, $paper, $administrator ? null : $profile);
             if ($paper->isDirty('year')) {
                 $metadata = $paper->metadata;
                 $metadata['csl']['issued'] = ['date-parts' => [[(int) $paper->year]]];
@@ -46,7 +48,8 @@ class PublicationReview
                 $paper->published_date = null;
             }
             if ($data['decision'] === 'published') {
-                abort_unless($paper->title && $paper->year && $paper->venue && $paper->authors && filter_var($paper->external_url, FILTER_VALIDATE_URL) && in_array(parse_url($paper->external_url, PHP_URL_SCHEME), ['http', 'https'], true), 422, 'Completa título, año, autores, revista y enlace antes de publicar.');
+                validator(['external_url' => $paper->external_url], ['external_url' => 'nullable|url:http,https|max:2048'])->validate();
+                abort_unless($paper->title && $paper->year && $paper->venue && $paper->authors, 422, 'Completa título, año, autores y revista antes de publicar.');
                 $ids = $administrator ? ($data['confirmed_ids'] ?? []) : [$profile->id];
                 if ($administrator && ! empty($data['researcher_id'])) {
                     $ids[] = $data['researcher_id'];
@@ -62,6 +65,7 @@ class PublicationReview
             $paper->user_modified_at = now();
             $paper->search_text = mb_strtolower($paper->title.' '.json_encode([$paper->authors, $paper->metadata['bibliografia']['palabras_clave'] ?? []], JSON_UNESCAPED_UNICODE));
             $paper->save();
+            $authorEditor->linkSelected($paper);
             Audit::record('publication', $paper->id, $administrator ? 'admin_review' : 'authorship_confirmed', $before, $paper->toArray(), $data['reason'] ?? ($administrator ? 'Ficha revisada y publicada' : 'Publicación autorizada por el titular del perfil'));
 
             return $paper;

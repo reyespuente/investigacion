@@ -49,6 +49,7 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
     Route::get('/cuenta/perfil', [AccountController::class, 'edit'])->name('profile.edit');
     Route::post('/cuenta/perfil', [AccountController::class, 'update'])->name('profile.update');
     Route::get('/cuenta/publicaciones/nueva', [PublicationEditorController::class, 'create'])->name('editor.create');
+    Route::get('/cuenta/autores', [CatalogueController::class, 'authorSuggestions'])->middleware('throttle:120,1')->name('authors.suggestions');
     Route::post('/cuenta/publicaciones', [PublicationEditorController::class, 'save'])->middleware('throttle:20,1')->name('editor.store');
     Route::get('/cuenta/publicaciones/{publication}/editar', [PublicationEditorController::class, 'edit'])->name('editor.edit');
     Route::post('/cuenta/publicaciones/{publication}', [PublicationEditorController::class, 'save'])->middleware('throttle:20,1')->name('editor.update');

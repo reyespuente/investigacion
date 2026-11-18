@@ -5,11 +5,23 @@ namespace App\Http\Controllers;
 use App\Models\Publication;
 use App\Models\Researcher;
 use App\Services\PublicationSearch;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 class CatalogueController extends Controller
 {
+    public function authorSuggestions(Request $request): JsonResponse
+    {
+        $data = $request->validate(['q' => 'required|string|min:2|max:150']);
+        $query = Researcher::query();
+        foreach (array_slice(preg_split('/\s+/u', trim($data['q'])), 0, 10) as $word) {
+            $query->whereLike('name', '%'.$word.'%');
+        }
+
+        return response()->json($query->orderBy('name')->limit(8)->get(['id', 'name', 'department', 'orcid']));
+    }
+
     public function home()
     {
         return view('home', ['latest' => Publication::published()->where('year', '<=', now()->year)->orderByDesc('year')->orderByDesc('published_date')->orderByDesc('id')->take(4)->get(), 'ranking' => $this->ranking()->take(5)->get(), 'count' => Publication::published()->count(), 'people' => Researcher::whereHas('publications', fn ($q) => $q->published()->where('publication_researcher.state', 'confirmed'))->count(), 'years' => $this->years()]);
@@ -78,6 +90,6 @@ class CatalogueController extends Controller
             'allYears' => $this->years(),
         ];
 
-        return $r->expectsJson() ? response()->json(['html' => view('partials.statistics', $data)->render()]) : view('statistics',$data);
+        return $r->expectsJson() ? response()->json(['html' => view('partials.statistics', $data)->render()]) : view('statistics', $data);
     }
 }

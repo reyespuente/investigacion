@@ -43,7 +43,7 @@ class Publication extends Model
 
     public function reviewGaps(): array
     {
-        return array_keys(array_filter(['título' => ! $this->title, 'año' => ! $this->year, 'autores' => ! $this->authors, 'revista' => ! $this->venue, 'enlace' => ! $this->external_url]));
+        return array_keys(array_filter(['título' => ! $this->title, 'año' => ! $this->year, 'autores' => ! $this->authors, 'revista' => ! $this->venue]));
     }
 
     public function batchReviewReady(): bool

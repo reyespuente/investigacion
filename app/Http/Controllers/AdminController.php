@@ -32,7 +32,7 @@ class AdminController extends Controller
         }
         if ($r->filled('ready')) {
             $condition = function ($query) {
-                $query->whereNotNull('year')->where('title', '<>', '')->whereNotNull('venue')->where('venue', '<>', '')->whereNotNull('external_url')->where('external_url', '<>', '')->where('authors', '<>', '[]');
+                $query->whereNotNull('year')->where('title', '<>', '')->whereNotNull('venue')->where('venue', '<>', '')->where('authors', '<>', '[]');
             };
             if (in_array($r->ready, ['1', '2'], true)) {
                 $q->where($condition);

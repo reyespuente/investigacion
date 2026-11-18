@@ -12,7 +12,7 @@
 @endif<h2>Resumen</h2>
 <p>{{ $publication->abstract?:'Resumen no disponible en las fuentes recuperadas.' }}</p>
 <h2>Acceso al trabajo</h2>
-<p><a href="{{ $publication->external_url }}">{{ $publication->external_url }}</a></p>
+@if($publication->external_url)<p><a href="{{ $publication->external_url }}">{{ $publication->external_url }}</a></p>@endif
 <h2>Fuente de esta ficha</h2>
 <p><a href="{{ route('publications.show',$publication) }}">{{ route('publications.show',$publication) }}</a></p>
 <div class="footer">Generada el {{ now()->format('d/m/Y') }}. Esta ficha contiene metadatos y enlaces; no reproduce el texto completo de la publicación. Los datos y licencias corresponden a sus fuentes y titulares.</div></body></html>

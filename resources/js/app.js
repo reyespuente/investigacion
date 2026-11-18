@@ -1,3 +1,5 @@
+import "./authors.js";
+
 const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
 const banner = document.querySelector("#cookie-banner");
 document.querySelectorAll("[data-cookie-open]").forEach((b) =>
@@ -389,7 +391,7 @@ document.querySelectorAll("[data-review-decision]").forEach((select) => {
             );
         form.querySelector('[name="reason"]').required = !publish;
         form.querySelectorAll(
-            '[name="title"],[name="year"],[name="venue"],[name="external_url"]',
+            '[name="title"],[name="year"],[name="venue"]',
         ).forEach((input) => (input.required = publish));
     }
     select.addEventListener("change", updateDecision);

@@ -65,8 +65,11 @@
 </article>
 <aside class="detail-actions">
 <div class="action-panel">
+@if($publication->external_url)
 <p class="eyebrow">ACCEDE AL TRABAJO</p><a class="button full" href="{{ $publication->external_url }}" rel="noopener noreferrer" target="_blank">Ir a la publicación <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a>
-<p class="small muted">Te dirigiremos al sitio que publica o aloja el trabajo.</p><a class="button secondary full" href="#citar"><i class="bi bi-quote" aria-hidden="true"></i> Copiar una cita</a><button class="button secondary full" type="button" data-export-open><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Descargar ficha PDF</button>
+<p class="small muted">Te dirigiremos al sitio que publica o aloja el trabajo.</p>
+@else<p class="small muted">Enlace al trabajo original pendiente de agregar.</p>@endif
+<a class="button secondary full" href="#citar"><i class="bi bi-quote" aria-hidden="true"></i> Copiar una cita</a><button class="button secondary full" type="button" data-export-open><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Descargar ficha PDF</button>
 @can('update',$publication)<a class="text-link" href="{{ route('editor.edit',$publication) }}">Editar publicación</a>
 @endcan</div>
 @if($publication->documents->isNotEmpty())<section class="action-panel">

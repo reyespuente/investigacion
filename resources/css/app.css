@@ -1035,6 +1035,70 @@ textarea {
 .dismiss-publication .checkbox {
     margin-bottom: 20px;
 }
+.author-editor {
+    min-width: 0;
+    margin: 16px 0;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.author-editor legend {
+    padding: 0 6px;
+    color: var(--navy);
+    font-weight: 600;
+}
+.author-editor-list {
+    margin: 0 0 18px;
+    padding-left: 24px;
+}
+.author-editor-row {
+    position: relative;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+}
+.author-editor-fields {
+    min-width: 0;
+}
+.author-editor-fields .field {
+    margin-bottom: 8px;
+}
+.author-editor-fields input[readonly] {
+    background: var(--surface);
+}
+.author-editor-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+.author-editor-actions button:disabled {
+    cursor: default;
+}
+.author-suggestions {
+    list-style: none;
+    margin: 0 0 18px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.author-suggestions button {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    padding: 12px;
+    text-align: left;
+    border: 0;
+    background: #fff;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+}
+.author-suggestions button:hover,
+.author-suggestions button:focus-visible {
+    background: var(--surface);
+}
+.author-suggestions small {
+    color: var(--muted);
+}
 .profile-bio {
     margin-top: 30px;
 }
