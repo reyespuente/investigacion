@@ -36,7 +36,7 @@ class PublicationReview
             $before = $paper->toArray();
             $profile = $request->user()->researcher;
             if (! $administrator) {
-                abort_unless($profile && in_array($paper->status, ['review', 'incomplete', 'published'], true) && $paper->researchers()->whereKey($profile->id)->wherePivotIn('state', ['pending', 'confirmed'])->exists(), 403);
+                abort_unless($profile && in_array($paper->status, ['review', 'incomplete', 'published'], true) && $profile->inboxPublications()->whereKey($paper->id)->exists(), 403);
             }
             $paper->fill(collect($data)->only(['title', 'year', 'venue', 'external_url', 'abstract'])->all());
             if ($paper->isDirty('year')) {

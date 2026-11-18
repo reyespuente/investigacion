@@ -42,7 +42,9 @@
 @endcan
 @if(in_array($publication->status,['review','incomplete']) || $publication->pivot->state==='pending')<a class="button small-button" href="{{ route('account.review',$publication) }}">Revisar y publicar <i class="bi bi-arrow-right" aria-hidden="true"></i></a>@endif
 @if($publication->status==='published')<a href="{{ route('publications.show',$publication) }}">Ver ficha</a>
-@endif</div></article>
+@endif
+<a class="dismiss-link" href="{{ route('account.remove',$publication) }}"><i class="bi bi-trash" aria-hidden="true"></i> Eliminar de mi bandeja</a>
+</div></article>
 @empty<div class="empty"><h3>{{ $status==='pending'?'Estás al día':'Todavía no hay artículos en esta lista' }}</h3><a href="{{ $status==='pending'?route('account',['status'=>'published']):route('editor.create') }}">{{ $status==='pending'?'Ver artículos publicados':'Agregar un artículo' }}</a></div>@endforelse {{ $publications->links() }}<details class="review-evidence">
 <summary>Compartir un documento</summary>
 <p>Puedes publicar un PDF del que tengas derechos, una certificación u otro documento académico.</p>

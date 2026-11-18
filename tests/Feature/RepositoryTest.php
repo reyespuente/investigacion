@@ -277,9 +277,16 @@ class RepositoryTest extends TestCase
             $this->assertDatabaseCount('publications', 1);
             $this->assertDatabaseCount('publication_researcher', 1);
             $p = Publication::first();
+            $dismissedAt = now()->format('Y-m-d H:i:s');
+            $p->researchers()->updateExistingPivot($profile->id, ['dismissed_at' => $dismissedAt]);
             $p->update(['title' => 'Edición del investigador', 'user_modified_at' => now()]);
             $service->import($file);
             $this->assertSame('Edición del investigador', $p->fresh()->title);
+            $this->assertDatabaseHas('publication_researcher', [
+                'publication_id' => $p->id,
+                'researcher_id' => $profile->id,
+                'dismissed_at' => $dismissedAt,
+            ]);
         } finally {
             unlink($file);
         }

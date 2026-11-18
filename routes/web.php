@@ -53,6 +53,8 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
     Route::get('/cuenta/publicaciones/{publication}/editar', [PublicationEditorController::class, 'edit'])->name('editor.edit');
     Route::post('/cuenta/publicaciones/{publication}', [PublicationEditorController::class, 'save'])->middleware('throttle:20,1')->name('editor.update');
     Route::post('/cuenta/publicaciones/{publication}/confirmar', [AccountController::class, 'confirm'])->name('editor.confirm');
+    Route::get('/cuenta/publicaciones/{publication}/eliminar', [AccountController::class, 'remove'])->name('account.remove');
+    Route::delete('/cuenta/publicaciones/{publication}/bandeja', [AccountController::class, 'dismiss'])->middleware('throttle:20,1')->name('editor.dismiss');
     Route::post('/cuenta/documentos', [DocumentController::class, 'store'])->middleware(['throttle:10,1', 'turnstile:upload'])->name('documents.store');
     Route::post('/cuenta/documentos/{document}/ocultar', [DocumentController::class, 'hide'])->name('documents.hide');
     Route::get('/admin', [AdminController::class, 'index'])->name('admin');

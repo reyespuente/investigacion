@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Researcher extends Model
 {
@@ -23,6 +24,18 @@ class Researcher extends Model
     public function publications()
     {
         return $this->belongsToMany(Publication::class)->withPivot('state', 'evidence');
+    }
+
+    public function inboxPublications(): BelongsToMany
+    {
+        return $this->publications()->wherePivotNull('dismissed_at')->wherePivotIn('state', ['pending', 'confirmed']);
+    }
+
+    public function pendingPublications(): BelongsToMany
+    {
+        return $this->inboxPublications()->where(fn ($query) => $query
+            ->whereIn('status', ['review', 'incomplete'])
+            ->orWhere(fn ($query) => $query->where('status', 'published')->where('publication_researcher.state', 'pending')));
     }
 
     public function documents()

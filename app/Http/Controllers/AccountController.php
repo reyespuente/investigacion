@@ -8,6 +8,8 @@ use App\Services\Audit;
 use App\Services\ImageUpload;
 use App\Services\PublicationReview;
 use App\Services\ResearcherClaim;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -23,11 +25,11 @@ class AccountController extends Controller
         if (! $researcher && ($hash = $claim->rosterHash($r->user()))) {
             $suggestedProfile = Researcher::whereNull('user_id')->where('claim_email_hash', $hash)->first();
         }
-        $counts = $researcher ? ['pending' => $researcher->publications()->wherePivotIn('state', ['pending', 'confirmed'])->where(fn ($q) => $q->whereIn('status', ['review', 'incomplete'])->orWhere(fn ($q) => $q->where('status', 'published')->where('publication_researcher.state', 'pending')))->count(), 'published' => $researcher->publications()->published()->wherePivot('state', 'confirmed')->count()] : [];
-        $query = $researcher ? $researcher->publications()->wherePivotIn('state', ['pending', 'confirmed']) : null;
+        $counts = $researcher ? ['pending' => $researcher->pendingPublications()->count(), 'published' => $researcher->inboxPublications()->published()->wherePivot('state', 'confirmed')->count()] : [];
+        $query = $researcher?->inboxPublications();
         $status = $r->input('status') ?: (! empty($counts['pending']) ? 'pending' : 'published');
         if ($query && $status === 'pending') {
-            $query->where(fn ($q) => $q->whereIn('status', ['review', 'incomplete'])->orWhere(fn ($q) => $q->where('status', 'published')->where('publication_researcher.state', 'pending')));
+            $query = $researcher->pendingPublications();
         }
         if ($query && $status === 'published') {
             $query->published()->wherePivot('state', 'confirmed');
@@ -138,7 +140,7 @@ class AccountController extends Controller
     public function review(Request $r, Publication $publication)
     {
         $profile = $r->user()->researcher;
-        abort_unless($profile && in_array($publication->status, ['review', 'incomplete', 'published'], true) && $publication->researchers()->whereKey($profile->id)->wherePivotIn('state', ['pending', 'confirmed'])->exists(), 403);
+        abort_unless($profile && in_array($publication->status, ['review', 'incomplete', 'published'], true) && $profile->inboxPublications()->whereKey($publication->id)->exists(), 403);
 
         return view('account.review', compact('publication'));
     }
@@ -148,12 +150,60 @@ class AccountController extends Controller
         $review->decide($r, $publication, false);
         $profile = $r->user()->researcher;
         if ($r->input('intent') === 'next') {
-            $next = $profile->publications()->whereIn('status', ['review', 'incomplete'])->wherePivotIn('state', ['pending', 'confirmed'])->orderBy('id')->first();
+            $next = $profile->pendingPublications()->orderBy('publications.id')->first();
             if ($next) {
                 return redirect()->route('account.review', $next)->with('success', 'Publicación confirmada. Continúa con la siguiente.');
             }
         }
 
         return redirect()->route('account', ['status' => 'pending'])->with('success', 'Autoría confirmada y publicación disponible.');
+    }
+
+    public function remove(Request $request, Publication $publication): View
+    {
+        $profile = $request->user()->researcher;
+        abort_unless($profile && $profile->inboxPublications()->whereKey($publication->id)->exists(), 403);
+
+        return view('account.remove-publication', compact('publication'));
+    }
+
+    public function dismiss(Request $request, Publication $publication): RedirectResponse
+    {
+        $data = $request->validate([
+            'version' => 'required|integer|min:1',
+            'confirmation' => 'accepted',
+            'intent' => 'nullable|in:next,stay',
+        ]);
+        $profile = $request->user()->researcher;
+        abort_unless($profile, 403);
+
+        DB::transaction(function () use ($request, $publication, $data, $profile) {
+            $paper = Publication::lockForUpdate()->findOrFail($publication->id);
+            $link = DB::table('publication_researcher')
+                ->where('publication_id', $paper->id)
+                ->where('researcher_id', $profile->id)
+                ->lockForUpdate()
+                ->first();
+            abort_unless($request->user()->active && $link && in_array($link->state, ['pending', 'confirmed'], true), 403);
+            if ($link->dismissed_at) {
+                return;
+            }
+            abort_unless((int) $paper->revision === (int) $data['version'], 409, 'La publicación cambió. Recarga para revisar la versión actual antes de quitarla de tu bandeja.');
+            $dismissedAt = now();
+            DB::table('publication_researcher')
+                ->where('publication_id', $paper->id)
+                ->where('researcher_id', $profile->id)
+                ->update(['dismissed_at' => $dismissedAt]);
+            Audit::record('publication', $paper->id, 'inbox_dismissed', null, [
+                'researcher_id' => $profile->id,
+                'dismissed_at' => $dismissedAt->toIso8601String(),
+            ]);
+        });
+
+        if ($request->input('intent') === 'next' && ($next = $profile->pendingPublications()->orderBy('publications.id')->first())) {
+            return redirect()->route('account.review', $next)->with('success', 'Publicación eliminada permanentemente de tu bandeja.');
+        }
+
+        return redirect()->route('account', ['status' => 'pending'])->with('success', 'Publicación eliminada permanentemente de tu bandeja.');
     }
 }

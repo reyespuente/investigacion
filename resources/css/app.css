@@ -1016,6 +1016,25 @@ textarea {
     margin-top: 10px;
     font-size: 11px;
 }
+.button.danger {
+    background: #a12626;
+    border-color: #a12626;
+    color: #fff;
+}
+.button.danger:hover {
+    background: #821e1e;
+    border-color: #821e1e;
+}
+.dismiss-link,
+.dismiss-publication summary {
+    color: #a12626;
+}
+.dismiss-publication {
+    margin-top: 28px;
+}
+.dismiss-publication .checkbox {
+    margin-bottom: 20px;
+}
 .profile-bio {
     margin-top: 30px;
 }
