@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Publication;
 use App\Models\Researcher;
+use App\Models\ResearchProject;
 use App\Services\PublicationSearch;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -76,7 +77,12 @@ class CatalogueController extends Controller
         $publications = $researcher->publications()->published()->wherePivot('state', 'confirmed')->orderByDesc('year')->paginate(10);
         $documents = $researcher->documents()->whereNull('publication_id')->where('is_public', true)->get();
 
-        return view('researchers.show', compact('researcher', 'publications', 'documents') + ['projects' => $researcher->projects()->with('researchLines')->orderBy('name')->get()]);
+        $projects = ResearchProject::with(['researchLines', 'responsible'])
+            ->where('responsible_researcher_id', $researcher->id)
+            ->orWhereIn('id', $researcher->projects()->select('research_projects.id'))
+            ->orderBy('name')->get();
+
+        return view('researchers.show', compact('researcher', 'publications', 'documents', 'projects'));
     }
 
     public function statistics(Request $r, PublicationSearch $search)

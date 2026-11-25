@@ -6,7 +6,7 @@
     @if(auth()->user()?->role === 'admin')<a class="button" href="{{ route('admin.projects.create') }}">Crear proyecto</a>@endif
 </div>
 <form class="directory-search project-search" method="get">
-    <label class="field"><span>Buscar proyecto</span><input type="search" name="q" value="{{ request('q') }}" placeholder="Nombre o descripción"></label>
+    <label class="field"><span>Buscar proyecto</span><input type="search" name="q" value="{{ request('q') }}" placeholder="Nombre, responsable o institución"></label>
     <label class="field"><span>Línea de investigación</span><select name="line"><option value="">Todas</option>@foreach($lines as $line)<option value="{{ $line->id }}" @selected(request('line') == $line->id)>{{ $line->label() }}</option>@endforeach</select></label>
     <button class="button secondary">Filtrar</button>
 </form>

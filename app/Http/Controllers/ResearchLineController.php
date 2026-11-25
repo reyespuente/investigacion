@@ -35,7 +35,7 @@ class ResearchLineController extends Controller
         return view('lines.show', [
             'line' => $line,
             'researchers' => $line->researchers()->withCount(['publications' => fn ($query) => $query->published()->where('publication_researcher.state', 'confirmed')])->orderBy('name')->paginate(12, ['*'], 'people'),
-            'projects' => $line->projects()->orderBy('name')->paginate(12, ['*'], 'projects'),
+            'projects' => $line->projects()->with('responsible')->orderBy('name')->paginate(12, ['*'], 'projects'),
         ]);
     }
 

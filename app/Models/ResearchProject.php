@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -10,6 +11,16 @@ use Illuminate\Support\Facades\DB;
 class ResearchProject extends Model
 {
     protected $guarded = ['id'];
+
+    public function responsible(): BelongsTo
+    {
+        return $this->belongsTo(Researcher::class, 'responsible_researcher_id');
+    }
+
+    public function responsibleDisplayName(): ?string
+    {
+        return $this->responsible?->name ?? $this->responsible_name;
+    }
 
     public function researchLines(): BelongsToMany
     {

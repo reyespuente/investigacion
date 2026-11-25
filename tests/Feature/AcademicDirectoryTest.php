@@ -32,15 +32,15 @@ class AcademicDirectoryTest extends TestCase
         $profile = $this->researcher(User::factory()->create());
         $line = ResearchLine::create(['name' => 'Energía sostenible']);
         $this->actingAs($admin)->post(route('admin.projects.store'), [
-            'name' => 'Proyecto solar', 'description' => 'Desarrollo de un prototipo.',
+            'name' => 'Proyecto solar', 'description' => 'Desarrollo de un prototipo.', 'responsible_name' => 'Responsable externo',
             'participants' => [['name' => 'Nombre manipulado', 'researcher_id' => $profile->id]],
-            'external_participants' => 'María Externa, Pedro Externo, Laura Externa, Juan Externo',
+            'external_participants' => 'María Externa, Pedro Externo, Laura Externa',
             'research_lines' => [$line->id],
         ])->assertRedirect();
         $project = ResearchProject::firstOrFail();
-        $this->assertCount(5, $project->participants());
+        $this->assertCount(4, $project->participants());
         $this->assertSame($profile->name, $project->participants()->first()->name);
-        $this->assertSame([1, 2, 3, 4, 5], $project->participants()->pluck('position')->all());
+        $this->assertSame([1, 2, 3, 4], $project->participants()->pluck('position')->all());
         $this->assertDatabaseHas('research_line_research_project', ['research_project_id' => $project->id, 'research_line_id' => $line->id]);
         $this->get(route('admin.projects.edit', $project))->assertOk();
         auth()->logout();
@@ -53,7 +53,7 @@ class AcademicDirectoryTest extends TestCase
     public function test_project_limit_and_stale_version_never_partially_replace_participants(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
-        $data = ['name' => 'Proyecto', 'description' => 'Descripción', 'external_participants' => 'Uno, Dos, Tres, Cuatro, Cinco, Seis'];
+        $data = ['name' => 'Proyecto', 'description' => 'Descripción', 'responsible_name' => 'Otra persona', 'external_participants' => 'Uno, Dos, Tres, Cuatro, Cinco'];
         $this->actingAs($admin)->post(route('admin.projects.store'), $data)->assertSessionHasErrors('participants');
         $this->assertDatabaseCount('research_projects', 0);
         $this->post(route('admin.projects.store'), array_replace($data, ['external_participants' => 'Uno, Dos']))->assertRedirect();

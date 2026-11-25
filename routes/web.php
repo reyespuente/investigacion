@@ -73,6 +73,9 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
     Route::post('/admin/proyectos', [ResearchProjectController::class, 'save'])->name('admin.projects.store');
     Route::get('/admin/proyectos/{project}/editar', [ResearchProjectController::class, 'edit'])->name('admin.projects.edit');
     Route::post('/admin/proyectos/{project}', [ResearchProjectController::class, 'save'])->name('admin.projects.update');
+    Route::delete('/admin/proyectos/{project}', [ResearchProjectController::class, 'destroy'])->name('admin.projects.destroy');
+    Route::get('/cuenta/proyectos/{project}/editar', [ResearchProjectController::class, 'edit'])->name('projects.edit');
+    Route::post('/cuenta/proyectos/{project}/editar', [ResearchProjectController::class, 'save'])->name('projects.update');
     Route::get('/admin/lineas', [ResearchLineController::class, 'index'])->name('admin.lines');
     Route::get('/admin/lineas/nueva', [ResearchLineController::class, 'create'])->name('admin.lines.create');
     Route::post('/admin/lineas', [ResearchLineController::class, 'save'])->name('admin.lines.store');
