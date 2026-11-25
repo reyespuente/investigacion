@@ -4,5 +4,6 @@
 @endforeach
 <a href="{{ route('admin.projects') }}" @class(['active'=>request()->routeIs('admin.projects*')])><i class="bi bi-kanban" aria-hidden="true"></i>Proyectos</a>
 <a href="{{ route('admin.lines') }}" @class(['active'=>request()->routeIs('admin.lines*')])><i class="bi bi-diagram-3" aria-hidden="true"></i>Líneas de investigación</a>
+<a href="{{ route('researchers.index') }}"><i class="bi bi-person-vcard" aria-hidden="true"></i>Perfiles de investigadores</a>
 <a href="{{ route('editor.create') }}"><i class="bi bi-plus-circle" aria-hidden="true"></i>Agregar publicación</a><a href="{{ route('account') }}"><i class="bi bi-person" aria-hidden="true"></i>Mi cuenta</a>
 </nav></details></aside>

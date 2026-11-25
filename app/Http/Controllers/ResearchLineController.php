@@ -8,6 +8,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class ResearchLineController extends Controller
@@ -17,10 +18,13 @@ class ResearchLineController extends Controller
         if ($request->routeIs('admin.*')) {
             abort_unless($request->user()?->role === 'admin', 403);
         }
-        $request->validate(['q' => 'nullable|string|max:200']);
-        $query = ResearchLine::withCount(['researchers', 'projects'])->orderBy('name');
+        $data = $request->validate(['q' => 'nullable|string|max:200']);
+        $query = ResearchLine::withCount(['researchers', 'projects'])->orderBy('program')->orderBy('name');
         if ($request->filled('q')) {
-            $query->whereLike('name', '%'.$request->q.'%');
+            $pattern = '%'.$data['q'].'%';
+            $query->where(fn ($search) => $search->whereLike('name', $pattern)
+                ->orWhereLike('program', $pattern)
+                ->orWhereLike('code', $pattern));
         }
 
         return view('lines.index', ['lines' => $query->paginate(20)->withQueryString()]);
@@ -46,13 +50,22 @@ class ResearchLineController extends Controller
     {
         abort_unless(auth()->user()?->role === 'admin', 403);
 
-        return view('lines.edit', compact('line'));
+        return view('lines.edit', ['line' => $line->loadCount(['researchers', 'projects'])]);
     }
 
     public function save(Request $request, ?ResearchLine $line = null): RedirectResponse
     {
         abort_unless($request->user()?->role === 'admin', 403);
-        $data = $request->validate(['name' => ['required', 'string', 'max:250', Rule::unique('research_lines')->ignore($line?->id)]]);
+        $data = $request->validate([
+            'program' => 'nullable|string|max:250',
+            'code' => ['nullable', 'string', 'max:64', 'regex:/\A[A-Z0-9-]+\z/i'],
+        ]);
+        $program = $data['program'] ?? ($request->has('program') ? '' : ($line?->program ?? ''));
+        $request->merge(['code' => isset($data['code']) ? Str::upper($data['code']) : ($request->has('code') ? null : $line?->code)]);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:250', Rule::unique('research_lines')->where('program', $program)->ignore($line?->id)],
+            'code' => ['nullable', Rule::unique('research_lines')->ignore($line?->id)],
+        ]) + ['program' => $program];
         $saved = DB::transaction(function () use ($line, $data) {
             $record = $line ? ResearchLine::lockForUpdate()->findOrFail($line->id) : new ResearchLine;
             $before = $record->exists ? $record->toArray() : null;
@@ -63,5 +76,23 @@ class ResearchLineController extends Controller
         });
 
         return redirect()->route('lines.show', $saved)->with('success', 'Línea de investigación guardada.');
+    }
+
+    public function destroy(Request $request, ResearchLine $line): RedirectResponse
+    {
+        abort_unless($request->user()->role === 'admin', 403);
+        $request->validate(['confirm_delete' => 'accepted']);
+
+        DB::transaction(function () use ($line) {
+            $record = ResearchLine::lockForUpdate()->findOrFail($line->id);
+            $before = $record->toArray() + [
+                'researcher_ids' => $record->researchers()->pluck('researchers.id')->all(),
+                'project_ids' => $record->projects()->pluck('research_projects.id')->all(),
+            ];
+            $record->delete();
+            Audit::record('research_line', $record->id, 'deleted', $before);
+        });
+
+        return redirect()->route('admin.lines')->with('success', 'Línea de investigación eliminada.');
     }
 }

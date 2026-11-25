@@ -27,7 +27,7 @@
 @endauth<p class="small muted">Vincula este perfil con el correo institucional registrado.</p>
 @endif
 @if(auth()->user()?->role==='admin')
-<a href="{{ route('admin.researchers.emails',$researcher) }}">Administrar correos</a>
+ <a href="{{ route('admin.researchers.edit',$researcher) }}">Administrar perfil</a>
 @endif
 </div></header>
 @if($researcher->bio)<section class="article-section"><h2>Acerca de mí</h2><p class="long-text profile-bio">{{ $researcher->bio }}</p></section>
@@ -63,7 +63,7 @@
 </div></section>
 @endif
 @if($researcher->researchLines->isNotEmpty())
-<section class="article-section"><h2>Líneas de investigación</h2><div class="tags">@foreach($researcher->researchLines as $line)<a href="{{ route('lines.show', $line) }}">{{ $line->name }}</a>@endforeach</div></section>
+<section class="article-section"><h2>Líneas de investigación</h2><div class="tags">@foreach($researcher->researchLines as $line)<a href="{{ route('lines.show', $line) }}">{{ $line->label() }}@if($line->code) ({{ $line->code }})@endif</a>@endforeach</div></section>
 @endif
 @if($projects->isNotEmpty())
 <section class="article-section"><h2>Proyectos de investigación</h2><div class="project-grid">@foreach($projects as $project)@include('projects.card')@endforeach</div></section>

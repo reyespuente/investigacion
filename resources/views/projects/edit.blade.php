@@ -28,7 +28,7 @@
         <template data-author-template>@include('partials.author-row', ['author' => [], 'index' => '__INDEX__', 'field' => 'participants', 'showAffiliations' => false])</template>
     </fieldset>
     <fieldset class="academic-section"><legend>Líneas de investigación</legend>
-        @forelse($lines as $line)<label class="checkbox"><input type="checkbox" name="research_lines[]" value="{{ $line->id }}" @checked(in_array($line->id, old('research_lines', $project->exists ? $project->researchLines->modelKeys() : [])))>{{ $line->name }}</label>
+        @forelse($lines as $line)<label class="checkbox"><input type="checkbox" name="research_lines[]" value="{{ $line->id }}" @checked(in_array($line->id, (array) old('research_lines', $project->exists ? $project->researchLines->modelKeys() : [])))>{{ $line->label() }}</label>
         @empty<p class="muted">Puedes crear líneas desde el catálogo de investigación.</p>@endforelse
     </fieldset>
     <button class="button">Guardar proyecto</button>

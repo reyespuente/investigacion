@@ -2,7 +2,9 @@
 @section('title', $line->name)
 @section('content')
 <a class="back-link" href="{{ route('lines.index') }}">Líneas de investigación</a>
-<div class="section-heading page-heading"><h1>{{ $line->name }}</h1>
+<div class="section-heading page-heading"><div><h1>{{ $line->name }}</h1>
+    @if($line->program || $line->code)<p class="muted">{{ implode(' · ', array_filter([$line->program, $line->code])) }}</p>@endif
+    </div>
     @if(auth()->user()?->role === 'admin')<a class="button secondary" href="{{ route('admin.lines.edit', $line) }}">Editar línea</a>
     @elseif(auth()->user()?->researcher)<a class="button secondary" href="{{ route('profile.edit') }}#research-lines">Administrar mi adscripción</a>@endif
 </div>

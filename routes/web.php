@@ -78,6 +78,9 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
     Route::post('/admin/lineas', [ResearchLineController::class, 'save'])->name('admin.lines.store');
     Route::get('/admin/lineas/{line}/editar', [ResearchLineController::class, 'edit'])->name('admin.lines.edit');
     Route::post('/admin/lineas/{line}', [ResearchLineController::class, 'save'])->name('admin.lines.update');
+    Route::delete('/admin/lineas/{line}', [ResearchLineController::class, 'destroy'])->name('admin.lines.destroy');
+    Route::get('/admin/investigadores/{researcher}/editar', [AccountController::class, 'editResearcher'])->name('admin.researchers.edit');
+    Route::post('/admin/investigadores/{researcher}/editar', [AccountController::class, 'updateResearcher'])->middleware('throttle:20,1')->name('admin.researchers.update');
     Route::get('/admin/investigadores/{researcher}/correos', [AccountController::class, 'editPublicEmails'])->name('admin.researchers.emails');
     Route::post('/admin/investigadores/{researcher}/correos', [AccountController::class, 'updatePublicEmails'])->middleware('throttle:20,1')->name('admin.researchers.emails.update');
     Route::get('/cuenta/publicaciones/{publication}/revisar', [AccountController::class, 'review'])->name('account.review');

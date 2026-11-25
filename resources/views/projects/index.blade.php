@@ -7,7 +7,7 @@
 </div>
 <form class="directory-search project-search" method="get">
     <label class="field"><span>Buscar proyecto</span><input type="search" name="q" value="{{ request('q') }}" placeholder="Nombre o descripción"></label>
-    <label class="field"><span>Línea de investigación</span><select name="line"><option value="">Todas</option>@foreach($lines as $line)<option value="{{ $line->id }}" @selected(request('line') == $line->id)>{{ $line->name }}</option>@endforeach</select></label>
+    <label class="field"><span>Línea de investigación</span><select name="line"><option value="">Todas</option>@foreach($lines as $line)<option value="{{ $line->id }}" @selected(request('line') == $line->id)>{{ $line->label() }}</option>@endforeach</select></label>
     <button class="button secondary">Filtrar</button>
 </form>
 <p class="small muted">{{ $projects->total() }} proyectos</p>

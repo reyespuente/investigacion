@@ -9,7 +9,7 @@
 <div class="academic-detail-grid">
     <article class="academic-section"><h2>Acerca del proyecto</h2><p class="long-text">{{ $project->description }}</p>
         <h2>Líneas de investigación</h2>
-        <div class="tags">@forelse($project->researchLines as $line)<a href="{{ route('lines.show', $line) }}">{{ $line->name }}</a>@empty<p class="muted">Sin líneas vinculadas.</p>@endforelse</div>
+        <div class="tags">@forelse($project->researchLines as $line)<a href="{{ route('lines.show', $line) }}">{{ $line->label() }}</a>@empty<p class="muted">Sin líneas vinculadas.</p>@endforelse</div>
     </article>
     <aside class="academic-section"><h2>Participantes <span class="muted">{{ $participants->count() }}/5</span></h2>
         <ol class="participant-list">

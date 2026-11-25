@@ -48,18 +48,47 @@ class AccountController extends Controller
         return redirect()->route('editor.create')->with('success', 'Perfil vinculado. Ya puedes agregar artículos.');
     }
 
-    public function edit(Request $r)
+    public function edit(Request $r): View
     {
         $researcher = $r->user()->researcher;
         abort_unless($researcher, 403);
 
-        return view('account.profile', ['researcher' => $researcher->load('researchLines'), 'lines' => ResearchLine::orderBy('name')->get()]);
+        return $this->profileForm($researcher, false);
     }
 
-    public function update(Request $r)
+    public function editResearcher(Request $request, Researcher $researcher): View
+    {
+        abort_unless($request->user()->role === 'admin', 403);
+
+        return $this->profileForm($researcher, true);
+    }
+
+    private function profileForm(Researcher $researcher, bool $adminEditing): View
+    {
+        return view('account.profile', [
+            'researcher' => $researcher->load('researchLines'),
+            'lines' => ResearchLine::orderBy('program')->orderBy('name')->get(),
+            'adminEditing' => $adminEditing,
+        ]);
+    }
+
+    public function update(Request $r): RedirectResponse
     {
         $profile = $r->user()->researcher;
         abort_unless($profile, 403);
+
+        return $this->saveProfile($r, $profile, false);
+    }
+
+    public function updateResearcher(Request $request, Researcher $researcher): RedirectResponse
+    {
+        abort_unless($request->user()->role === 'admin', 403);
+
+        return $this->saveProfile($request, $researcher, true);
+    }
+
+    private function saveProfile(Request $r, Researcher $profile, bool $adminEditing): RedirectResponse
+    {
         $d = $r->validate(['name' => 'required|string|max:500', 'bio' => 'nullable|string|max:4000', 'department' => 'nullable|string|max:250', 'website' => 'nullable|url:http,https|max:2048', 'phone' => 'nullable|string|max:50', 'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:3072|dimensions:max_width=4096,max_height=4096']);
         $academic = $r->validate([
             'career' => 'sometimes|nullable|string|max:250',
@@ -82,6 +111,11 @@ class AccountController extends Controller
         $emails = $this->validatePublicEmails($r);
         $fields = collect($d)->only(['name', 'bio', 'department'])->all();
         $fields = array_replace($fields, collect($academic)->only(['career', 'professional_title'])->all());
+        if ($adminEditing) {
+            $fields += $r->validate([
+                'orcid' => ['sometimes', 'nullable', 'regex:/\Ahttps:\/\/orcid\.org\/[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]\z/'],
+            ]);
+        }
         if ($r->has('degrees_present')) {
             $fields['degrees'] = array_values($academic['degrees'] ?? []);
         }
@@ -95,22 +129,28 @@ class AccountController extends Controller
             $fields['avatar_path'] = app(ImageUpload::class)->store($r->file('avatar'), 'avatars');
             $fields['avatar_disk'] = config('filesystems.default');
         }
-        DB::transaction(function () use ($r, $profile, $fields, $emails, $d, $academic) {
+        DB::transaction(function () use ($r, $profile, $fields, $emails, $d, $academic, $adminEditing) {
             $profile = Researcher::lockForUpdate()->findOrFail($profile->id);
-            abort_unless($profile->user_id === $r->user()->id, 403);
+            abort_unless($adminEditing || $profile->user_id === $r->user()->id, 403);
             $before = $profile->toArray();
-            $fields['contacts'] = array_filter(array_replace($profile->contacts ?? [], $emails, [
-                'website' => $d['website'] ?? null,
-                'phone' => $d['phone'] ?? null,
-            ]));
+            $fields['contacts'] = array_filter(array_replace(
+                $profile->contacts ?? [],
+                $emails,
+                array_intersect_key($d, ['website' => true, 'phone' => true]),
+            ));
             $profile->update($fields);
+            $after = $profile->toArray();
             if ($r->has('research_lines_present')) {
+                $before['research_line_ids'] = $profile->researchLines()->pluck('research_lines.id')->all();
                 $profile->researchLines()->sync($academic['research_lines'] ?? []);
+                $after['research_line_ids'] = $profile->researchLines()->pluck('research_lines.id')->all();
             }
-            Audit::record('researcher', $profile->id, 'updated', $before, $profile->toArray());
+            Audit::record('researcher', $profile->id, 'updated', $before, $after);
         });
 
-        return back()->with('success', 'Perfil actualizado. Los datos de contacto que escribiste serán públicos.');
+        return $adminEditing
+            ? redirect()->route('researchers.show', $profile)->with('success', 'Perfil público del investigador actualizado.')
+            : back()->with('success', 'Perfil actualizado. Los datos de contacto que escribiste serán públicos.');
     }
 
     public function editPublicEmails(Request $r, Researcher $researcher)

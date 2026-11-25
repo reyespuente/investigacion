@@ -1230,6 +1230,17 @@ textarea {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
     gap: 14px;
 }
+.line-program {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px 16px;
+    margin: 12px 0 0;
+}
+.line-program legend {
+    padding: 0 4px;
+    font-weight: 600;
+}
 .profile-save-bar {
     display: flex;
     gap: 24px;

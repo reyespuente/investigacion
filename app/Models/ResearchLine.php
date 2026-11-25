@@ -9,6 +9,11 @@ class ResearchLine extends Model
 {
     protected $guarded = ['id'];
 
+    public function label(): string
+    {
+        return $this->program ? "{$this->name} · {$this->program}" : $this->name;
+    }
+
     public function researchers(): BelongsToMany
     {
         return $this->belongsToMany(Researcher::class);
