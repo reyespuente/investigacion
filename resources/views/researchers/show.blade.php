@@ -65,8 +65,20 @@
 @if($researcher->researchLines->isNotEmpty())
 <section class="article-section"><h2>Líneas de investigación</h2><div class="tags">@foreach($researcher->researchLines as $line)<a href="{{ route('lines.show', $line) }}">{{ $line->label() }}@if($line->code) ({{ $line->code }})@endif</a>@endforeach</div></section>
 @endif
-@if($projects->isNotEmpty())
-<section class="article-section"><h2>Proyectos de investigación</h2><div class="project-grid">@foreach($projects as $project)@include('projects.card')@endforeach</div></section>
+@if($responsibleProjects->isNotEmpty() || $participatingProjects->isNotEmpty())
+<section class="article-section">
+    <h2>Proyectos de investigación</h2>
+    @foreach(['Como responsable técnico' => $responsibleProjects, 'Como participante' => $participatingProjects] as $role => $roleProjects)
+        @if($roleProjects->isNotEmpty())
+            <h3>{{ $role }}</h3>
+            <div class="project-grid">
+                @foreach($roleProjects as $project)
+                    @include('projects.card', ['heading' => 'h4'])
+                @endforeach
+            </div>
+        @endif
+    @endforeach
+</section>
 @endif
 <div class="section-heading article-section">
 <h2>Publicaciones <span class="muted">{{ $publications->total() }}</span></h2><a href="{{ route('publications.index',['researcher'=>$researcher->id]) }}">Explorar y exportar <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a></div>

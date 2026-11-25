@@ -40,7 +40,10 @@ class FundedProjectsTest extends TestCase
             $this->assertSame('2022-02-19', $project->period_end);
             $this->assertNull($project->responsible_researcher_id);
             $this->get(route('projects.index', ['q' => 'Ana Pérez']))->assertOk()->assertSee('Estudio de prueba');
-            $this->get(route('projects.show', $project))->assertOk()->assertSee('Ana Pérez')->assertSee('Institución A')->assertDontSee('No publicar');
+            $this->get(route('projects.show', $project))->assertOk()->assertSee('Ana Pérez')
+                ->assertSee('Datos del proyecto')->assertSee('Institución A')->assertSee('19 de febrero de 2022')
+                ->assertSee('Aún no se ha publicado una descripción.')->assertDontSee(route('researchers.show', $profile))
+                ->assertDontSee('No publicar');
             $this->actingAs($profile->user)->get(route('projects.edit', $project))->assertForbidden();
             $project->update(['description' => 'Descripción corregida']);
             $this->artisan('catalog:projects', ['file' => $file])->expectsOutput('Proyectos nuevos: 0. Fichas existentes sin cambios: 2.')->assertSuccessful();
@@ -73,12 +76,20 @@ class FundedProjectsTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         $line = ResearchLine::create(['name' => 'Línea de prueba']);
         $this->actingAs($admin)->post(route('admin.projects.store'), [
-            'name' => 'Estudio de prueba', 'responsible_researcher_id' => $owner->id,
+            'name' => 'Estudio de prueba', 'responsible_name' => 'Dra. Ana Pérez', 'responsible_researcher_id' => $owner->id,
             'participants' => [['name' => $colleague->name, 'researcher_id' => $colleague->id]],
-            'research_lines' => [$line->id],
         ])->assertSessionHas('success');
         $project = ResearchProject::firstOrFail();
-        $this->get(route('researchers.show', $owner))->assertOk()->assertSee('Estudio de prueba');
+        $project->researchLines()->attach($line);
+        $otherProject = ResearchProject::create([
+            'name' => 'Segundo estudio', 'description' => '', 'responsible_researcher_id' => $colleague->id,
+        ]);
+        $owner->projects()->attach($otherProject, ['name' => $owner->name, 'position' => 1]);
+        auth()->logout();
+        $this->get(route('researchers.show', $owner))->assertOk()
+            ->assertSeeInOrder(['Como responsable técnico', 'Estudio de prueba', 'Como participante', 'Segundo estudio']);
+        $this->get(route('projects.show', $project))->assertOk()
+            ->assertSee('href="'.route('researchers.show', $owner).'">Dra. Ana Pérez', false)->assertDontSee('Línea de prueba');
 
         $data = ['name' => 'Nuevo título', 'description' => 'Texto nuevo', 'version' => 1, 'period_start' => '2020', 'period_end' => '2022-02-19'];
         $this->actingAs($colleague->user)->get(route('projects.edit', $project))->assertForbidden();
@@ -90,9 +101,11 @@ class FundedProjectsTest extends TestCase
         $this->delete(route('admin.projects.destroy', $project), ['confirm_delete' => 1, 'version' => 1])->assertForbidden();
         $this->post(route('projects.update', $project), $data + [
             'responsible_researcher_id' => $colleague->id, 'participants' => [], 'external_participants' => 'Alguien nuevo',
+            'research_lines_present' => 1, 'research_lines' => [],
         ])->assertSessionHas('success');
         $project->refresh();
         $this->assertSame('Nuevo título', $project->name);
+        $this->assertSame('Texto nuevo', $project->description);
         $this->assertSame($owner->id, $project->responsible_researcher_id);
         $this->assertSame([$colleague->id], $project->participants()->pluck('researcher_id')->all());
         $this->assertSame([$line->id], $project->researchLines()->pluck('research_lines.id')->all());

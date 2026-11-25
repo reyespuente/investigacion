@@ -7,7 +7,7 @@
     @csrf
     <input type="hidden" name="version" value="{{ $project->revision ?? 0 }}">
     @include('partials.field', ['name' => 'name', 'label' => 'Nombre del proyecto', 'value' => $project->name, 'required' => true])
-    @include('partials.field', ['name' => 'description', 'label' => 'Descripción', 'type' => 'textarea', 'rows' => 6, 'value' => $project->description])
+    @include('partials.field', ['name' => 'description', 'label' => 'Descripción de la investigación', 'type' => 'textarea', 'rows' => 7, 'value' => $project->description, 'help' => 'Describe el objetivo, el alcance o los resultados del proyecto. Este texto será público.'])
     <div class="form-grid">
         @include('partials.field', ['name' => 'department', 'label' => 'Departamento', 'value' => $project->department])
         @include('partials.field', ['name' => 'funding_institution', 'label' => 'Institución financiadora', 'value' => $project->funding_institution])
@@ -20,7 +20,7 @@
     @if($managingTeam)
     <fieldset class="academic-section">
         <legend>Responsable técnico</legend>
-        @include('partials.field', ['name' => 'responsible_name', 'label' => 'Nombre del responsable sin perfil vinculado', 'value' => $project->responsible_name])
+        @include('partials.field', ['name' => 'responsible_name', 'label' => 'Nombre público del responsable', 'value' => $project->responsible_name])
         <label class="field"><span>Vincular perfil del responsable</span>
             <select name="responsible_researcher_id">
                 <option value="">Sin vincular: publicar solo el nombre</option>
@@ -28,7 +28,7 @@
                     <option value="{{ $researcher->id }}" @selected(old('responsible_researcher_id', $project->responsible_researcher_id) == $researcher->id)>{{ $researcher->name }}@if($researcher->department) · {{ $researcher->department }}@endif</option>
                 @endforeach
             </select>
-            <small class="muted">El perfil seleccionado sustituye el nombre escrito y su titular podrá editar la ficha pública. Solo la administración puede cambiar el equipo.</small>
+            <small class="muted">El nombre escrito se conserva. Si vinculas un perfil, el nombre enlazará a ese perfil y su titular podrá editar la ficha pública. Solo la administración puede cambiar el equipo.</small>
         </label>
     </fieldset>
     <input type="hidden" name="participants_present" value="1">
@@ -53,12 +53,6 @@
     @else
         <p class="muted">Solo la administración puede cambiar al responsable y a los demás participantes.</p>
     @endif
-    <fieldset class="academic-section"><legend>Líneas de investigación</legend>
-        <input type="hidden" name="research_lines_present" value="1">
-        @php($selectedLines = session()->hasOldInput('research_lines_present') ? (array) old('research_lines', []) : $project->researchLines->modelKeys())
-        @forelse($lines as $line)<label class="checkbox"><input type="checkbox" name="research_lines[]" value="{{ $line->id }}" @checked(in_array($line->id, $selectedLines))>{{ $line->label() }}</label>
-        @empty<p class="muted">Puedes crear líneas desde el catálogo de investigación.</p>@endforelse
-    </fieldset>
     <button class="button">Guardar proyecto</button>
 </form>
 @if($managingTeam && $project->exists)

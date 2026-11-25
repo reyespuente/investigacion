@@ -2,39 +2,62 @@
 @section('title', $project->name)
 @section('content')
 <a class="back-link" href="{{ route('projects.index') }}">Proyectos de investigación</a>
+@php
+    $formatPeriod = fn ($period) => $period && strlen($period) > 4
+        ? \Illuminate\Support\Facades\Date::parse($period)->locale('es')->translatedFormat('j \d\e F \d\e Y')
+        : $period;
+    $details = array_filter([
+        'Departamento' => $project->department,
+        'Institución financiadora' => $project->funding_institution,
+        'Convocatoria' => $project->funding_call,
+        'Inicio de vigencia' => $formatPeriod($project->period_start),
+        'Fin de vigencia' => $formatPeriod($project->period_end),
+    ]);
+@endphp
 <div class="section-heading page-heading">
-    <h1>{{ $project->name }}</h1>
+    <div><p class="eyebrow">PROYECTO DE INVESTIGACIÓN</p><h1>{{ $project->name }}</h1></div>
     @can('update', $project)<a class="button secondary" href="{{ route(auth()->user()->role === 'admin' ? 'admin.projects.edit' : 'projects.edit', $project) }}">Editar proyecto</a>@endcan
 </div>
 <div class="academic-detail-grid">
-    <article class="academic-section"><h2>Acerca del proyecto</h2>
-        @if($project->description)<p class="long-text">{{ $project->description }}</p>@endif
-        @if($project->department || $project->funding_call || $project->funding_institution || $project->period_start || $project->period_end)
-            <dl>
-                @if($project->department)<dt>Departamento</dt><dd>{{ $project->department }}</dd>@endif
-                @if($project->funding_call)<dt>Convocatoria</dt><dd>{{ $project->funding_call }}</dd>@endif
-                @if($project->funding_institution)<dt>Institución financiadora</dt><dd>{{ $project->funding_institution }}</dd>@endif
-                @if($project->period_start)<dt>Inicio de vigencia</dt><dd>{{ $project->period_start }}</dd>@endif
-                @if($project->period_end)<dt>Fin de vigencia</dt><dd>{{ $project->period_end }}</dd>@endif
+    <div class="project-detail-content">
+        @if($details)
+        <section class="academic-section">
+            <h2>Datos del proyecto</h2>
+            <dl class="project-facts">
+                @foreach($details as $label => $value)
+                    <div><dt>{{ $label }}</dt><dd>{{ $value }}</dd></div>
+                @endforeach
             </dl>
+        </section>
         @endif
-        <h2>Líneas de investigación</h2>
-        <div class="tags">@forelse($project->researchLines as $line)<a href="{{ route('lines.show', $line) }}">{{ $line->label() }}</a>@empty<p class="muted">Sin líneas vinculadas.</p>@endforelse</div>
-    </article>
-    <aside class="academic-section"><h2>Responsable técnico</h2>
+        <section class="academic-section">
+            <h2>Descripción de la investigación</h2>
+            @if($project->description)
+                <p class="long-text project-description">{{ $project->description }}</p>
+            @else
+                <p class="muted project-description">Aún no se ha publicado una descripción.</p>
+            @endif
+        </section>
+    </div>
+    <aside class="academic-section project-team"><h2>Equipo de investigación</h2>
+        <h3>Responsable técnico</h3>
         @if($project->responsible)
-            <p><a href="{{ route('researchers.show', $project->responsible) }}">{{ $project->responsibleDisplayName() }}</a></p>
+            <p><a href="{{ route('researchers.show', $project->responsible) }}">{{ $project->responsibleDisplayName() }} <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a></p>
         @else
             <p>{{ $project->responsibleDisplayName() ?? 'Por registrar.' }}</p>
         @endif
-        <h2>Participantes adicionales</h2>
+        <h3>Participantes</h3>
+        @if($participants->isNotEmpty())
         <ol class="participant-list">
-            @forelse($participants as $person)
+            @foreach($participants as $person)
             <li>@if($person->researcher_id)<a href="{{ route('researchers.show', $person->researcher_id) }}">{{ $person->profile_name }}</a>
                 @if($person->department)<small>{{ $person->department }}</small>@endif
                 @else<strong>{{ $person->name }}</strong><small>Participante externo</small>@endif</li>
-            @empty<li class="muted">No hay participantes adicionales registrados.</li>@endforelse
+            @endforeach
         </ol>
+        @else
+            <p class="small muted">No hay participantes adicionales registrados.</p>
+        @endif
     </aside>
 </div>
 @endsection

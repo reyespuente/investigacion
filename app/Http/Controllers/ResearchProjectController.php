@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Researcher;
-use App\Models\ResearchLine;
 use App\Models\ResearchProject;
 use App\Services\Audit;
 use Illuminate\Contracts\View\View;
@@ -21,8 +20,8 @@ class ResearchProjectController extends Controller
         if ($request->routeIs('admin.*')) {
             Gate::authorize('create', ResearchProject::class);
         }
-        $request->validate(['q' => 'nullable|string|max:200', 'line' => 'nullable|integer|exists:research_lines,id']);
-        $query = ResearchProject::with(['researchLines', 'responsible'])->orderBy('name')->orderBy('id');
+        $request->validate(['q' => 'nullable|string|max:200']);
+        $query = ResearchProject::with('responsible')->orderBy('name')->orderBy('id');
         if ($request->filled('q')) {
             $pattern = '%'.$request->input('q').'%';
             $query->where(fn ($query) => $query->whereLike('name', $pattern)
@@ -33,16 +32,13 @@ class ResearchProjectController extends Controller
                 ->orWhereLike('funding_institution', $pattern)
                 ->orWhereLike('funding_call', $pattern));
         }
-        if ($request->filled('line')) {
-            $query->whereHas('researchLines', fn ($query) => $query->whereKey($request->integer('line')));
-        }
 
-        return view('projects.index', ['projects' => $query->paginate(12)->withQueryString(), 'lines' => ResearchLine::orderBy('name')->get()]);
+        return view('projects.index', ['projects' => $query->paginate(12)->withQueryString()]);
     }
 
     public function show(ResearchProject $project): View
     {
-        return view('projects.show', ['project' => $project->load(['researchLines', 'responsible']), 'participants' => $project->participants()]);
+        return view('projects.show', ['project' => $project->load('responsible'), 'participants' => $project->participants()]);
     }
 
     public function create(): View
@@ -63,9 +59,8 @@ class ResearchProjectController extends Controller
     private function form(ResearchProject $project, bool $managingTeam): View
     {
         return view('projects.edit', [
-            'project' => $project->load(['researchLines', 'responsible']),
+            'project' => $project,
             'participants' => $project->participants(),
-            'lines' => ResearchLine::orderBy('program')->orderBy('name')->get(),
             'researchers' => $managingTeam ? Researcher::orderBy('name')->get(['id', 'name', 'department']) : collect(),
             'managingTeam' => $managingTeam,
         ]);
@@ -84,12 +79,7 @@ class ResearchProjectController extends Controller
             'period_start' => 'nullable|date_format:Y,Y-m-d',
             'period_end' => 'nullable|date_format:Y,Y-m-d',
         ];
-        $rules = $fields + [
-            'version' => $project ? 'required|integer|min:1' : 'nullable|integer',
-            'research_lines_present' => 'nullable|in:1',
-            'research_lines' => 'nullable|array|max:50',
-            'research_lines.*' => 'integer|distinct|exists:research_lines,id',
-        ];
+        $rules = $fields + ['version' => $project ? 'required|integer|min:1' : 'nullable|integer'];
         $data = $request->validate($managingTeam ? $rules + [
             'responsible_name' => 'required_without:responsible_researcher_id|nullable|string|max:500',
             'responsible_researcher_id' => 'nullable|integer|exists:researchers,id',
@@ -114,7 +104,9 @@ class ResearchProjectController extends Controller
             }
             if ($managingTeam) {
                 $responsible = isset($data['responsible_researcher_id']) ? Researcher::findOrFail($data['responsible_researcher_id']) : null;
-                $details['responsible_name'] = $responsible?->name ?? $data['responsible_name'];
+                $details['responsible_name'] = array_key_exists('responsible_name', $data)
+                    ? ($data['responsible_name'] ?? $responsible?->name)
+                    : ($record->responsible_name ?? $responsible?->name);
                 $details['responsible_researcher_id'] = $responsible?->id;
                 $replacingParticipants = ! $record->exists || (bool) array_intersect_key($data, ['participants_present' => true, 'participants' => true, 'external_participants' => true]);
                 $team = $replacingParticipants ? $data : ['participants' => $record->participants()
@@ -127,9 +119,6 @@ class ResearchProjectController extends Controller
                 foreach ($participants as $index => $participant) {
                     DB::table('project_participants')->insert($participant + ['research_project_id' => $record->id, 'position' => $index + 1]);
                 }
-            }
-            if (isset($data['research_lines_present']) || array_key_exists('research_lines', $data)) {
-                $record->researchLines()->sync($data['research_lines'] ?? []);
             }
             Audit::record('research_project', $record->id, $before ? 'updated' : 'created', $before, $this->snapshot($record));
 

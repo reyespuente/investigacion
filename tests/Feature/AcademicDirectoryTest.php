@@ -41,11 +41,14 @@ class AcademicDirectoryTest extends TestCase
         $this->assertCount(4, $project->participants());
         $this->assertSame($profile->name, $project->participants()->first()->name);
         $this->assertSame([1, 2, 3, 4], $project->participants()->pluck('position')->all());
-        $this->assertDatabaseHas('research_line_research_project', ['research_project_id' => $project->id, 'research_line_id' => $line->id]);
-        $this->get(route('admin.projects.edit', $project))->assertOk();
+        $this->assertDatabaseCount('research_line_research_project', 0);
+        $project->researchLines()->attach($line);
+        $this->get(route('admin.projects.edit', $project))->assertOk()
+            ->assertSee('Descripción de la investigación')->assertDontSee('name="research_lines[]"', false);
         auth()->logout();
-        $this->get(route('projects.show', $project))->assertOk()->assertSee('María Externa')->assertSee(route('researchers.show', $profile));
-        $this->get(route('projects.index'))->assertOk()->assertSee('Proyecto solar');
+        $this->get(route('projects.show', $project))->assertOk()->assertSee('María Externa')
+            ->assertSee('Desarrollo de un prototipo.')->assertSee(route('researchers.show', $profile))->assertDontSee('Energía sostenible');
+        $this->get(route('projects.index'))->assertOk()->assertSee('Proyecto solar')->assertDontSee('name="line"', false);
         $this->get(route('lines.show', $line))->assertOk()->assertSee('Proyecto solar');
         $this->get(route('researchers.show', $profile))->assertOk()->assertSee('Proyecto solar');
     }

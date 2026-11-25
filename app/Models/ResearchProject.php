@@ -19,7 +19,7 @@ class ResearchProject extends Model
 
     public function responsibleDisplayName(): ?string
     {
-        return $this->responsible?->name ?? $this->responsible_name;
+        return $this->responsible_name ?? $this->responsible?->name;
     }
 
     public function researchLines(): BelongsToMany

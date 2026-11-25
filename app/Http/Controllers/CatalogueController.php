@@ -77,12 +77,13 @@ class CatalogueController extends Controller
         $publications = $researcher->publications()->published()->wherePivot('state', 'confirmed')->orderByDesc('year')->paginate(10);
         $documents = $researcher->documents()->whereNull('publication_id')->where('is_public', true)->get();
 
-        $projects = ResearchProject::with(['researchLines', 'responsible'])
+        $projects = ResearchProject::with('responsible')
             ->where('responsible_researcher_id', $researcher->id)
             ->orWhereIn('id', $researcher->projects()->select('research_projects.id'))
             ->orderBy('name')->get();
+        [$responsibleProjects, $participatingProjects] = $projects->partition(fn (ResearchProject $project) => (int) $project->responsible_researcher_id === $researcher->id);
 
-        return view('researchers.show', compact('researcher', 'publications', 'documents', 'projects'));
+        return view('researchers.show', compact('researcher', 'publications', 'documents', 'responsibleProjects', 'participatingProjects'));
     }
 
     public function statistics(Request $r, PublicationSearch $search)

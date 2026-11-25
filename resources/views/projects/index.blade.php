@@ -2,12 +2,11 @@
 @section('title', 'Proyectos de investigación')
 @section('content')
 <div class="section-heading page-heading">
-    <div><h1>Proyectos de investigación</h1><p class="muted">Conoce los proyectos, sus participantes y sus líneas de investigación.</p></div>
+    <div><h1>Proyectos de investigación</h1><p class="muted">Conoce los proyectos, sus responsables y sus equipos de trabajo.</p></div>
     @if(auth()->user()?->role === 'admin')<a class="button" href="{{ route('admin.projects.create') }}">Crear proyecto</a>@endif
 </div>
 <form class="directory-search project-search" method="get">
     <label class="field"><span>Buscar proyecto</span><input type="search" name="q" value="{{ request('q') }}" placeholder="Nombre, responsable o institución"></label>
-    <label class="field"><span>Línea de investigación</span><select name="line"><option value="">Todas</option>@foreach($lines as $line)<option value="{{ $line->id }}" @selected(request('line') == $line->id)>{{ $line->label() }}</option>@endforeach</select></label>
     <button class="button secondary">Filtrar</button>
 </form>
 <p class="small muted">{{ $projects->total() }} proyectos</p>
