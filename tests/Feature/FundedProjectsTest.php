@@ -86,7 +86,7 @@ class FundedProjectsTest extends TestCase
         ]);
         $owner->projects()->attach($otherProject, ['name' => $owner->name, 'position' => 1]);
         auth()->logout();
-        $this->get(route('researchers.show', $owner))->assertOk()
+        $this->get(route('researchers.show', ['researcher' => $owner, 'seccion' => 'proyectos']))->assertOk()
             ->assertSeeInOrder(['Como responsable técnico', 'Estudio de prueba', 'Como participante', 'Segundo estudio']);
         $this->get(route('projects.show', $project))->assertOk()
             ->assertSee('href="'.route('researchers.show', $owner).'">Dra. Ana Pérez', false)->assertDontSee('Línea de prueba');

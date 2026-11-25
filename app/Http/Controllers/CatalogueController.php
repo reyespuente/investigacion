@@ -6,8 +6,10 @@ use App\Models\Publication;
 use App\Models\Researcher;
 use App\Models\ResearchProject;
 use App\Services\PublicationSearch;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 
 class CatalogueController extends Controller
@@ -56,34 +58,61 @@ class CatalogueController extends Controller
         return view('publications.show', compact('publication'));
     }
 
-    public function researchers(Request $r)
+    public function researchers(Request $r): View
     {
         $r->validate(['q' => 'nullable|string|max:150']);
         $r->validate(['department' => 'nullable|string|max:250']);
-        $q = Researcher::withCount(['publications as publications_count' => fn ($q) => $q->published()->where('publication_researcher.state', 'confirmed')]);
+        $projectCount = ResearchProject::query()->selectRaw('count(*)')
+            ->where(fn ($projects) => $projects->whereColumn('research_projects.responsible_researcher_id', 'researchers.id')
+                ->orWhereExists(fn ($participants) => $participants->selectRaw('1')->from('project_participants')
+                    ->whereColumn('project_participants.research_project_id', 'research_projects.id')
+                    ->whereColumn('project_participants.researcher_id', 'researchers.id')));
+        $q = Researcher::withCount(['publications' => fn ($publications) => $publications->published()->where('publication_researcher.state', 'confirmed')])
+            ->selectSub($projectCount, 'projects_count');
         if ($r->filled('department')) {
             $q->where('department', $r->department);
         }
         if ($r->filled('q')) {
             $q->where('name', 'like', '%'.$r->q.'%');
-        }$researchers = $q->orderBy('name')->paginate(24)->withQueryString();
+        }
+        $researchers = $q->orderByDesc('publications_count')->orderBy('name')->orderBy('id')->paginate(24)->withQueryString();
 
         return view('researchers.index', compact('researchers'));
     }
 
-    public function researcher(Researcher $researcher)
+    public function researcher(Request $request, Researcher $researcher): View
     {
-        $researcher->load(['researchLines', 'user']);
-        $publications = $researcher->publications()->published()->wherePivot('state', 'confirmed')->orderByDesc('year')->paginate(10);
-        $documents = $researcher->documents()->whereNull('publication_id')->where('is_public', true)->get();
+        $section = $request->query('seccion', $request->query->has('page') ? 'publicaciones' : 'informacion');
+        if (! in_array($section, ['informacion', 'publicaciones', 'proyectos'], true)) {
+            $section = 'informacion';
+        }
+        if ($section === 'informacion') {
+            $researcher->load(['researchLines', 'user']);
+        }
 
+        $content = match ($section) {
+            'publicaciones' => ['publications' => $researcher->publications()->published()
+                ->wherePivot('state', 'confirmed')->orderByDesc('year')->orderByDesc('publications.id')
+                ->paginate(10)->appends(['seccion' => 'publicaciones'])],
+            'proyectos' => $this->researcherProjects($researcher),
+            default => ['documents' => $researcher->documents()->whereNull('publication_id')->where('is_public', true)->get()],
+        };
+
+        return view('researchers.show', $content + compact('researcher', 'section'));
+    }
+
+    /** @return array{responsibleProjects: Collection, participatingProjects: Collection} */
+    private function researcherProjects(Researcher $researcher): array
+    {
         $projects = ResearchProject::with('responsible')
             ->where('responsible_researcher_id', $researcher->id)
             ->orWhereIn('id', $researcher->projects()->select('research_projects.id'))
             ->orderBy('name')->get();
-        [$responsibleProjects, $participatingProjects] = $projects->partition(fn (ResearchProject $project) => (int) $project->responsible_researcher_id === $researcher->id);
+        [$responsibleProjects, $participatingProjects] = $projects->partition(
+            fn (ResearchProject $project) => (int) $project->responsible_researcher_id === $researcher->id,
+        );
 
-        return view('researchers.show', compact('researcher', 'publications', 'documents', 'responsibleProjects', 'participatingProjects'));
+        return compact('responsibleProjects', 'participatingProjects');
     }
 
     public function statistics(Request $r, PublicationSearch $search)

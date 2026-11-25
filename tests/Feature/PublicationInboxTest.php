@@ -149,7 +149,7 @@ class PublicationInboxTest extends TestCase
         $this->actingAs($owner->user)->delete(route('editor.dismiss', $removed), ['version' => 1, 'confirmation' => 1])->assertRedirect();
         $this->post(route('editor.confirm', $first), ['version' => 1, 'decision' => 'published', 'authorship' => 1, 'intent' => 'next'])
             ->assertRedirect(route('account.review', $next));
-        $this->get(route('researchers.show', $owner))->assertOk()->assertViewHas('publications', fn ($rows) => $rows->total() === 2);
+        $this->get(route('researchers.show', ['researcher' => $owner, 'seccion' => 'publicaciones']))->assertOk()->assertViewHas('publications', fn ($rows) => $rows->total() === 2);
         $this->assertNotNull(DB::table('publication_researcher')->where('publication_id', $removed->id)->where('researcher_id', $owner->id)->value('dismissed_at'));
     }
 }

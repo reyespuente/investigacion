@@ -50,7 +50,7 @@ class AcademicDirectoryTest extends TestCase
             ->assertSee('Desarrollo de un prototipo.')->assertSee(route('researchers.show', $profile))->assertDontSee('Energía sostenible');
         $this->get(route('projects.index'))->assertOk()->assertSee('Proyecto solar')->assertDontSee('name="line"', false);
         $this->get(route('lines.show', $line))->assertOk()->assertSee('Proyecto solar');
-        $this->get(route('researchers.show', $profile))->assertOk()->assertSee('Proyecto solar');
+        $this->get(route('researchers.show', ['researcher' => $profile, 'seccion' => 'proyectos']))->assertOk()->assertSee('Proyecto solar');
     }
 
     public function test_project_limit_and_stale_version_never_partially_replace_participants(): void

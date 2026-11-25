@@ -30,23 +30,38 @@
  <a href="{{ route('admin.researchers.edit',$researcher) }}">Administrar perfil</a>
 @endif
 </div></header>
-@if($researcher->bio)<section class="article-section"><h2>Acerca de mí</h2><p class="long-text profile-bio">{{ $researcher->bio }}</p></section>
+<nav class="researcher-tabs" aria-label="Secciones del perfil">
+    @foreach(['informacion' => ['Información', 'person-vcard'], 'publicaciones' => ['Publicaciones', 'journal-text'], 'proyectos' => ['Proyectos', 'kanban']] as $key => [$label, $icon])
+        <a href="{{ route('researchers.show', ['researcher' => $researcher, 'seccion' => $key]) }}" @if($section === $key) aria-current="page" @endif>
+            <i class="bi bi-{{ $icon }}" aria-hidden="true"></i><span>{{ $label }}</span>
+        </a>
+    @endforeach
+</nav>
+<div class="researcher-tab-content">
+@if($section === 'informacion')
+<div class="researcher-info">
+@php
+    $emails = $researcher->publicEmails();
+    $website = $researcher->contacts['website'] ?? null;
+    $phone = $researcher->contacts['phone'] ?? null;
+@endphp
+@if($researcher->bio)<section class="academic-section"><h2>Acerca de mí</h2><p class="long-text">{{ $researcher->bio }}</p></section>
 @endif
-@if($researcher->contacts || $researcher->publicEmails())
-<div class="tags" aria-label="Datos de contacto públicos">
-@foreach($researcher->publicEmails() as $email)
+@if($emails || $website || $phone)
+<section class="academic-section"><h2>Contacto</h2><div class="tags">
+@foreach($emails as $email)
 <a href="mailto:{{ $email }}">{{ $email }}</a>
 @endforeach
-@if($website = $researcher->contacts['website'] ?? null)
+@if($website)
 <a href="{{ $website }}" rel="noopener noreferrer" target="_blank">Sitio web <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a>
 @endif
-@if($phone = $researcher->contacts['phone'] ?? null)
+@if($phone)
 <span>{{ $phone }}</span>
 @endif
-</div>
+</div></section>
 @endif
 @if($researcher->degrees)
-<section class="article-section"><h2>Formación académica</h2>
+<section class="academic-section"><h2>Formación académica</h2>
     <div class="education-list">@foreach($researcher->degrees as $degree)<article class="education-item">
         <i class="bi bi-mortarboard" aria-hidden="true"></i>
         <div><h3>{{ $degree['level'] }}@if(!empty($degree['program'])) · {{ $degree['program'] }}@endif</h3>
@@ -57,20 +72,29 @@
 </section>
 @endif
 @if($researcher->recognitions)
-<section class="article-section"><h2>Reconocimientos</h2><div class="recognition-grid">
+<section class="academic-section"><h2>Reconocimientos</h2><div class="recognition-grid">
     @if($prodep = $researcher->recognitions['prodep'] ?? null)<article class="recognition-card"><i class="bi bi-patch-check" aria-hidden="true"></i><div><h3>PRODEP</h3><p>Vigencia {{ \Carbon\Carbon::parse($prodep['start'])->format('d/m/Y') }} al {{ \Carbon\Carbon::parse($prodep['until'])->format('d/m/Y') }}</p>@if($prodep['until'] < now()->toDateString())<span class="small muted">Vigencia finalizada</span>@endif</div></article>@endif
     @if($level = $researcher->recognitions['snii'] ?? null)<article class="recognition-card"><i class="bi bi-award" aria-hidden="true"></i><div><h3>SNII</h3><p>{{ $level }}</p></div></article>@endif
 </div></section>
 @endif
 @if($researcher->researchLines->isNotEmpty())
-<section class="article-section"><h2>Líneas de investigación</h2><div class="tags">@foreach($researcher->researchLines as $line)<a href="{{ route('lines.show', $line) }}">{{ $line->label() }}@if($line->code) ({{ $line->code }})@endif</a>@endforeach</div></section>
+<section class="academic-section"><h2>Líneas de investigación</h2><div class="tags">@foreach($researcher->researchLines as $line)<a href="{{ route('lines.show', $line) }}">{{ $line->label() }}@if($line->code) ({{ $line->code }})@endif</a>@endforeach</div></section>
 @endif
-@if($responsibleProjects->isNotEmpty() || $participatingProjects->isNotEmpty())
-<section class="article-section">
+@if($documents->isNotEmpty())<section class="academic-section">
+<h2>Documentos y certificaciones</h2>
+@foreach($documents as $document)<a class="document-link" href="{{ route('documents.show', $document) }}"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>{{ $document->title }}</a>
+@endforeach</section>
+@endif
+@if(!$researcher->bio && !$emails && !$website && !$phone && !$researcher->degrees && !$researcher->recognitions && $researcher->researchLines->isEmpty() && $documents->isEmpty())
+<div class="empty"><h2>Información académica</h2><p>Este perfil aún no tiene información adicional.</p></div>
+@endif
+</div>
+@elseif($section === 'proyectos')
+<section>
     <h2>Proyectos de investigación</h2>
     @foreach(['Como responsable técnico' => $responsibleProjects, 'Como participante' => $participatingProjects] as $role => $roleProjects)
         @if($roleProjects->isNotEmpty())
-            <h3>{{ $role }}</h3>
+            <h3 class="researcher-project-role">{{ $role }}</h3>
             <div class="project-grid">
                 @foreach($roleProjects as $project)
                     @include('projects.card', ['heading' => 'h4'])
@@ -78,14 +102,23 @@
             </div>
         @endif
     @endforeach
+    @if($responsibleProjects->isEmpty() && $participatingProjects->isEmpty())
+        <div class="empty"><i class="bi bi-kanban" aria-hidden="true"></i><h3>Aún no hay proyectos vinculados</h3><p>Los proyectos de este perfil aparecerán aquí.</p></div>
+    @endif
+</section>
+@else
+<section>
+    <div class="section-heading">
+        <h2>Publicaciones <span class="muted">{{ number_format($publications->total()) }}</span></h2>
+        @if($publications->total() > 0)<a href="{{ route('publications.index', ['researcher' => $researcher->id]) }}">Explorar y exportar <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a>@endif
+    </div>
+    @forelse($publications as $publication)
+        @include('partials.card', ['featured' => false])
+    @empty
+        <div class="empty"><i class="bi bi-journal-text" aria-hidden="true"></i><h3>No hay publicaciones en esta página</h3><p>Las publicaciones disponibles de este perfil aparecerán aquí.</p></div>
+    @endforelse
+    <div class="pagination">{{ $publications->links() }}</div>
 </section>
 @endif
-<div class="section-heading article-section">
-<h2>Publicaciones <span class="muted">{{ $publications->total() }}</span></h2><a href="{{ route('publications.index',['researcher'=>$researcher->id]) }}">Explorar y exportar <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a></div>
-@include('partials.results')
-@if($documents->isNotEmpty())<section class="article-section">
-<h2>Documentos y certificaciones</h2>
-@foreach($documents as $document)<a class="document-link" href="{{ route('documents.show',$document) }}"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>{{ $document->title }}</a>
-@endforeach</section>
-@endif
+</div>
 @endsection

@@ -15,7 +15,11 @@
 @else{{ $person->initials() }}
 @endif</span>
 <h2>{{ mb_convert_case($person->name,MB_CASE_TITLE,'UTF-8') }}</h2>
-<p>{{ $person->department?:config('catalogue.institution') }}</p><span class="small muted">{{ $person->publications_count }} publicaciones confirmadas</span></a>
+<p>{{ $person->department?:config('catalogue.institution') }}</p>
+<span class="researcher-stats">
+    <span><i class="bi bi-journal-text" aria-hidden="true"></i> {{ number_format($person->publications_count) }} {{ (int) $person->publications_count === 1 ? 'publicación' : 'publicaciones' }}</span>
+    <span><i class="bi bi-kanban" aria-hidden="true"></i> {{ number_format($person->projects_count) }} {{ (int) $person->projects_count === 1 ? 'proyecto' : 'proyectos' }}</span>
+</span></a>
 @empty<div class="empty">
 <h2>No se encontraron investigadores</h2>
 <p>Prueba con otro apellido.</p></div>
